@@ -1,0 +1,99 @@
+FridgeChef — code submission
+
+ICT304 Assignment
+Parth Kotak · Wadiqa Baig · Syeda Masooma Zehra Naqvi
+
+Keep this complete Code folder together. It contains the three editable notebooks, the prepared dataset, both trained detectors and the recorded results. You can inspect the saved notebook outputs without running or training anything.
+
+View saved outputs only
+
+If you do not want to repeat final testing using the saved models, simply open the submitted notebooks in Google Colab and scroll through the saved tables, plots and results. Do not click Run all or run individual cells. No GPU selection, package installation or Drive mounting is needed to view these saved outputs.
+
+The running instructions below are only for reproducing the results with a new execution.
+
+1. What to open
+
+YOLO11s (Fridge_YOLO/Final_YOLO11s.ipynb)
+  Default when rerun: Load supplied weights; EDA, validation and a photograph demonstration
+  Recorded evidence: Original training and test outputs remain in the notebook. The checkpoint also contains its 20-epoch training history.
+
+RF-DETR Small (FridgeChef_RFDETR/Final_ICT304_Assignment_RFDETR_Colab.ipynb)
+  Default when rerun: Load supplied weights; EDA and repeat the frozen final test
+  Recorded evidence: Training history, validation analysis and final-test exports are supplied.
+
+YOLO11s + RF-DETR ensemble (FridgeChef_Ensemble/Final_ICT304_Assignment_YOLO_RFDETR_Ensemble_Colab.ipynb)
+  Default when rerun: Repeat the frozen final test for both detectors and their fusion
+  Recorded evidence: Common-protocol validation and test comparisons are supplied.
+
+
+None of these default configurations starts training. RF-DETR and ensemble testing reuse the choices already made on validation data. A repeated test is for verification, not further tuning.
+
+2. Run in Google Colab
+
+1. Extract the submission if it arrived as a ZIP. In Google Drive, upload Group Assignment Submission, including its complete Code folder, to My Drive. Wait for every file to finish uploading.
+2. Open one notebook listed above or upload that notebook to Colab. The other submission files must still be in Drive.
+3. Choose Runtime → Change runtime type → T4 GPU → Save. Each notebook runs independently; no earlier notebook needs to run first. A fresh runtime for each notebook avoids carrying model memory between them.
+4. Leave code_root=None when the folder is in either of these locations:
+
+   /content/drive/MyDrive/Group Assignment Submission/Code
+   /content/drive/MyDrive/ICT304/Group Assignment Submission/Code
+
+   For another location, set code_root in the notebook's configuration to the actual full path of Code. All other default input paths are relative to that root. Do not point it to an individual model folder.
+5. Keep the supplied execution settings shown in the table above. Select Runtime → Run all and allow Drive access.
+6. Setup checks or installs the required packages while retaining Colab's PyTorch/CUDA setup. If installation requests a runtime restart, restart and run all again. Internet access is required for package installation and any pretrained assets needed by the libraries.
+7. Read the printed paths, checks, plots and metrics. Dataset copying and package setup take time before prediction begins. In the ensemble, if its prediction budget pauses the run, rerun Collect component predictions and the cells below; do not restart the entire notebook. The completed prediction cache is reused.
+8. New results go under Code/lecturer_runs, in separate run folders. Save the newly executed notebook as a separate copy to retain the submitted evidence.
+
+The two detection libraries are pinned to Ultralytics 8.4.171 and RF-DETR 1.11.1. The ensemble uses ensemble-boxes 1.0.9, and COCO evaluation uses pycocotools 2.0.11. Each notebook contains its own setup. No local Mac environment is included or required for Colab.
+
+3. Find the recorded results
+
+All paths below start at Code.
+
+YOLO11s trained weights
+  Folder or file: Fridge_YOLO/best.pt
+
+RF-DETR trained weights and training metadata
+  Folder or file: FridgeChef_RFDETR/training_runs/rfdetr/20261002T212750Z_1bb5fe/
+
+RF-DETR validation
+  Folder or file: FridgeChef_RFDETR/evaluation_results/rfdetr/20261002T212750Z_1bb5fe/validation/
+
+RF-DETR final test
+  Folder or file: FridgeChef_RFDETR/evaluation_results/rfdetr/20261003T004604Z_a98276/final_test/
+
+Ensemble validation comparison and frozen choices
+  Folder or file: FridgeChef_Ensemble/evaluation_results/20261002T234626Z_a4f9fe/
+
+Ensemble final comparison
+  Folder or file: FridgeChef_Ensemble/evaluation_results/20261003T005256Z_355b40/test_comparison.csv
+
+Final per-model predictions and metrics
+  Folder or file: FridgeChef_Ensemble/evaluation_results/20261003T005256Z_355b40/test/
+
+Dataset classes, support and provenance
+  Folder or file: Fridge_Combined_YOLO/metadata/
+
+
+In each evaluation folder, detection_metrics.json contains box metrics, ingredient_metrics.json contains deduplicated ingredient-list scores, per_class_metrics.csv includes class-level results and support, and predictions.jsonl contains one record per evaluated image. Empty detection lists are valid. The final comparison evaluates all three methods on the same 97 test images.
+
+The saved JSON, logs and notebook outputs retain their original execution paths as historical evidence. They are not paths lecturer needs to recreate. New execution uses the portable notebook configuration. Similarly, source-preparation paths in the dataset provenance document the original preparation process.
+
+4. Optional execution changes
+
+- YOLO final test: retain mode="evaluate"; set final_test_enabled=True and settings_frozen=True. The checkpoint and evaluation settings are checked before testing. Native Ultralytics metrics can differ from the ensemble's common evaluation protocol, so use test_comparison.csv for the cross-model comparison.
+- YOLO fresh training: use mode="train" with both final-test controls False. The original 20-epoch, batch-16, patience-10 configuration is retained. This takes additional GPU time.
+- RF-DETR fresh training: use mode="full-training", full_checkpoint=None, run_validation=True, final_test_enabled=False and settings_frozen=False. The original limit of 20 epochs, patience 4 and training time limits are retained. Finishing all 20 epochs is not guaranteed.
+- Resume: the supplied .pt and .pth files are selected inference weights without optimizer state. They cannot resume the original training runs. RF-DETR's resume option requires a new run's full .ckpt, companion metadata and remaining time budget. Historical references to the original latest_resume.ckpt do not mean it is included.
+- CPU preparation: set mode="preparation" and disable final testing. This runs checks and EDA without model inference. Local notebook preparation requires its imported packages: NumPy, pandas, Pillow, PyYAML, Matplotlib, tqdm and IPython; YOLO also uses Plotly/OpenCV, and RF-DETR's augmentation preview uses its training dependencies. Colab handles setup automatically.
+
+5. Handoff verification — 3 October 2026
+
+- All 4,243 dataset images decode. The 44,348 annotated objects and 195 reviewed negatives agree with the metadata: 3,972 training, 174 validation and 97 test images.
+- All 8,499 dataset files match the original prepared export byte for byte. No missing/orphan annotations, invalid boxes, class mismatches or related groups crossing splits were found.
+- Both supplied checkpoints load on CPU, have finite weights, and match the canonical 42 classes and recorded checkpoint hashes.
+- All eight prediction exports cover their entire split. Recalculated mAP, box precision/recall, ingredient scores and per-class metrics match the saved results within numerical tolerance. Final-test settings match the validation locks.
+- All three edited notebooks pass format and syntax checks, and their complete CPU preparation paths execute. Portable path discovery was checked from the notebook folders, submission root and a relocated folder containing spaces.
+- All original saved outputs, dataset files, checkpoint files and recorded result files are preserved. New working data and generated results are separate.
+
+Execution limit: no new Colab CUDA training or prediction run was performed during this handoff check. GPU availability, future package changes and small hardware-dependent numerical differences remain runtime considerations. The recorded GPU is identified in each environment/timing file; the ensemble's saved timing was measured on an RTX PRO 6000, not a T4. A different CUDA GPU is recorded without weakening the frozen checkpoint and inference-setting checks.
