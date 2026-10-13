@@ -1,0 +1,2 @@
+# Only needed when DETECTOR=rfdetr. Same version used to train and test the model.
+rfdetr==1.11.1

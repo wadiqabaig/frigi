@@ -9,7 +9,7 @@ Version 1.0 — 13 Oct 2026. This is the agreement between the app (`app/`) and 
 | Base URL (local) | `http://localhost:8000` |
 | Base URL (AWS) | Added here once deployed |
 | Format | JSON, except `/detect`, which takes image uploads (`multipart/form-data`) |
-| Auth | After log-in, send `Authorization: Bearer <token>` on every request marked 🔒 |
+| Auth | After log-in, send `Authorization: Bearer <token>` on every request marked **(login required)** |
 | Interactive docs | FastAPI generates them at `/docs` once the server runs |
 
 ### Errors
@@ -74,7 +74,7 @@ Response `201`:
 ```
 Response `200`: same shape as sign-up. Wrong details give `401` with code `INVALID_LOGIN`.
 
-### `GET /profile` 🔒
+### `GET /profile` (login required)
 ```json
 {
   "id": 17,
@@ -87,7 +87,7 @@ Response `200`: same shape as sign-up. Wrong details give `401` with code `INVAL
 }
 ```
 
-### `PUT /profile` 🔒
+### `PUT /profile` (login required)
 Send only the fields that change. Returns the full updated profile.
 ```json
 { "allergies": ["peanut"], "household_size": 2 }
@@ -115,7 +115,7 @@ Used for the "add an item" picker and the staples question.
 
 ## 4. Detection (FR2–FR4)
 
-### `POST /detect` 🔒
+### `POST /detect` 
 `multipart/form-data` with field `photos`, repeated 1 to 3 times. Accepts JPG, PNG and HEIC, up to 10 MB each. Photos are processed in memory and never stored (NFR6).
 
 Response `200`:
@@ -171,7 +171,7 @@ The chef's tap-to-answer questions (FR6). The app shows them one at a time and a
 }
 ```
 
-### `POST /chef/options` 🔒
+### `POST /chef/options` (login required)
 ```json
 {
   "ingredients": [
@@ -214,7 +214,7 @@ Response `200` with at least 3 options (FR7), no quantities yet:
 - `source` is `"spoonacular"` or `"llm"`, so we can compare the two approaches in testing.
 - `removed_by_safety_filter` counts recipes the rule-based filter blocked (FR10). If fewer than 3 safe options remain, `notice` explains why, e.g. `"Only 2 safe recipes found for these ingredients."`
 
-### `POST /chef/recipe` 🔒
+### `POST /chef/recipe` (login required)
 ```json
 { "option_id": "opt_8f2c1a", "servings": 4 }
 ```
@@ -243,7 +243,7 @@ Response `200`, scaled to `servings` (FR8):
 
 Changing servings on the recipe screen calls this endpoint again with the same `option_id`.
 
-### `POST /chef/swap` 🔒
+### `POST /chef/swap` (login required)
 Suggests a replacement for a missing ingredient (FR9). The replacement also passes the safety filter.
 ```json
 { "recipe_id": "rec_51b9d0", "missing": "Onion" }
