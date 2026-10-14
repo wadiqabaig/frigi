@@ -36,3 +36,4 @@ __MACOSX/
 # Local databases
 *.db
 backend/weights/
+backend/cache/

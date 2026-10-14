@@ -1,8 +1,10 @@
 from fastapi import APIRouter, Depends
+from fastapi.concurrency import run_in_threadpool
 
-from ..errors import ApiError
 from ..models import User
+from ..schemas import OptionsIn, OptionsOut, RecipeIn, RecipeOut, SwapIn, SwapOut
 from ..security import current_user
+from ..services import chef
 
 router = APIRouter(prefix="/chef", tags=["chef"])
 
@@ -21,21 +23,18 @@ def questions():
     return {"questions": QUESTIONS}
 
 
-def _not_ready():
-    raise ApiError(501, "NOT_IMPLEMENTED", "The recipe chef is not available yet.")
+# Spoonacular and Gemini calls take seconds, so run them off the event loop.
+@router.post("/options", response_model=OptionsOut)
+async def options(body: OptionsIn, user: User = Depends(current_user)):
+    ingredients = [i.model_dump() for i in body.ingredients]
+    return await run_in_threadpool(chef.options, user, ingredients, body.answers.model_dump())
 
 
-# TODO: Spoonacular + Gemini + safety filter. Stubs keep the routes visible in /docs.
-@router.post("/options")
-def options(user: User = Depends(current_user)):
-    _not_ready()
+@router.post("/recipe", response_model=RecipeOut)
+async def recipe(body: RecipeIn, user: User = Depends(current_user)):
+    return await run_in_threadpool(chef.recipe, user, body.option_id, body.servings)
 
 
-@router.post("/recipe")
-def recipe(user: User = Depends(current_user)):
-    _not_ready()
-
-
-@router.post("/swap")
-def swap(user: User = Depends(current_user)):
-    _not_ready()
+@router.post("/swap", response_model=SwapOut)
+async def swap(body: SwapIn, user: User = Depends(current_user)):
+    return await run_in_threadpool(chef.swap, user, body.recipe_id, body.missing)

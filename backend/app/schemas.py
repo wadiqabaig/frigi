@@ -84,3 +84,77 @@ class DetectOut(BaseModel):
     ask_about_staples: list[Ingredient]
     model: str
     elapsed_ms: int
+
+
+class ChefAnswers(BaseModel):
+    cuisine: str | None = Field(default=None, max_length=50)
+    mood: str | None = Field(default=None, max_length=50)
+    max_minutes: int | None = Field(default=None, ge=5, le=240)
+    servings: int | None = Field(default=None, ge=1, le=20)
+    note: str | None = Field(default=None, max_length=200)
+
+
+class OptionsIn(BaseModel):
+    ingredients: list[Ingredient] = Field(min_length=1, max_length=60)
+    answers: ChefAnswers = ChefAnswers()
+
+
+class RecipeOption(BaseModel):
+    option_id: str
+    title: str
+    summary: str
+    minutes: int | None
+    uses: list[str]
+    missing: list[str]
+    image_url: str | None
+    source: str
+
+
+class OptionsOut(BaseModel):
+    options: list[RecipeOption]
+    removed_by_safety_filter: int
+    notice: str | None
+
+
+class RecipeIn(BaseModel):
+    option_id: str
+    servings: int = Field(ge=1, le=20)
+
+
+class RecipeIngredientOut(BaseModel):
+    name: str
+    quantity: float
+    unit: str
+    have: bool
+
+
+class SafetyOut(BaseModel):
+    checked: bool
+    allergies: list[str]
+    diet: str
+
+
+class RecipeOut(BaseModel):
+    recipe_id: str
+    title: str
+    servings: int
+    minutes: int | None
+    ingredients: list[RecipeIngredientOut]
+    steps: list[str]
+    safety: SafetyOut
+    image_url: str | None
+
+
+class SwapIn(BaseModel):
+    recipe_id: str
+    missing: str = Field(min_length=1, max_length=60)
+
+
+class SwapItem(BaseModel):
+    name: str
+    note: str
+
+
+class SwapOut(BaseModel):
+    missing: str
+    swaps: list[SwapItem]

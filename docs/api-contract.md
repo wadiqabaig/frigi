@@ -26,7 +26,8 @@ Every error uses the same shape, so the app can show one error screen:
 | 401 | Missing or expired token |
 | 404 | Unknown recipe or option id |
 | 409 | Email already registered |
-| 502 | Gemini or Spoonacular failed; the app should offer "Try again" |
+| 422 | `UNSAFE_RECIPE`: the full recipe failed the safety filter; ask the user to pick another option |
+| 502 | `CHEF_UNAVAILABLE` (Gemini or Spoonacular failed) or `NO_SAFE_RECIPES` (nothing safe found); the app should offer "Try again" |
 
 `message` is always safe to show to the user.
 
