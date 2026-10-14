@@ -6,6 +6,7 @@ from fastapi import FastAPI
 from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
+from sqlalchemy import text
 
 from .config import get_settings
 from .database import Base, engine
@@ -48,4 +49,11 @@ def root():
 @app.get("/health", tags=["system"])
 def health():
     detector = "rfdetr-small" if get_settings().detector == "rfdetr" else "mock"
-    return {"status": "ok", "detector": detector, "version": app.version}
+    try:
+        with engine.connect() as connection:
+            connection.execute(text("SELECT 1"))
+        database = engine.dialect.name
+    except Exception:
+        database = "unreachable"
+    return {"status": "ok" if database != "unreachable" else "degraded", "detector": detector,
+            "database": database, "version": app.version}

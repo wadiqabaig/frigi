@@ -136,3 +136,58 @@ Apps and websites served over `https://` refuse to call a plain `http://` API, a
 From now on, start and update the server with `docker compose --profile https up -d --build` so Caddy runs too.
 
 Once the app uses the HTTPS address, remove the port 8000 rule from the security group so all traffic is encrypted.
+
+---
+
+## Step 10. Move the database to RDS PostgreSQL
+
+User accounts move from a SQLite file on the server to a managed PostgreSQL database. RDS keeps automatic backups, and the database survives even if the EC2 server is replaced. Test accounts in the old SQLite file are not copied; create them again afterwards.
+
+### 10.1 Create the database (AWS console, region us-east-1)
+
+1. Search **RDS** → **Create database**.
+2. **Standard create**, engine **PostgreSQL** (latest version offered).
+3. Template: **Free tier** (if not shown, choose **Dev/Test** and pick the smallest instance below).
+4. Settings:
+   - DB instance identifier: `frigi-db`
+   - Master username: `frigi_admin`
+   - Credentials management: **Self managed**. Type a password of **letters and numbers only** (at least 12 characters). Symbols would need escaping in the connection address. Save it in your password manager.
+5. Instance configuration: **db.t4g.micro** (or db.t3.micro).
+6. Storage: **20 GiB gp3**. Untick **Enable storage autoscaling**.
+7. Connectivity:
+   - **Compute resource: Connect to an EC2 compute resource** → choose `frigi-backend`. AWS then creates the network rules so only the Frigi server can reach the database.
+   - Public access: **No**.
+8. Additional configuration (expand it):
+   - **Initial database name: `frigi`** (easy to miss; without it no database is created).
+   - Backup retention: **7 days**.
+   - Leave **encryption** turned on.
+   - Untick **Performance Insights** and **Enhanced monitoring** (they can add cost).
+9. **Create database**. It takes about 10 minutes until the status is **Available**.
+10. Open `frigi-db` → **Connectivity & security** → copy the **Endpoint**, e.g. `frigi-db.abc123xyz.us-east-1.rds.amazonaws.com`.
+
+### 10.2 Point the server at it (on the server)
+
+```bash
+cd ~/frigi && git pull
+nano .env
+```
+
+`~/frigi/.env` already holds `FRIGI_DOMAIN`. Add one line, replacing `PASSWORD` and `ENDPOINT`:
+
+```
+DATABASE_URL=postgresql+psycopg://frigi_admin:PASSWORD@ENDPOINT:5432/frigi?sslmode=require
+```
+
+Save (**Ctrl+O, Enter**, **Ctrl+X**), then rebuild and check:
+
+```bash
+docker compose --profile https up -d --build
+curl -s https://frigi-app.duckdns.org/health
+```
+
+The health check should show `"database": "postgresql"`. If it shows `"unreachable"`, run `docker compose logs api | tail -30` and check the password, endpoint and database name.
+
+### Costs and stopping
+
+- On the free tier, db.t4g.micro with 20 GB is free for 12 months; otherwise it is about US$0.016 per hour.
+- RDS can be stopped (RDS → `frigi-db` → **Actions → Stop temporarily**) for up to 7 days, after which AWS starts it again by itself. Stop it together with the EC2 server when the team is not working.

@@ -5,8 +5,9 @@ services:
       - "8000:8000"
     env_file: ./backend/.env
     environment:
-      # Paths inside the container; the folders below are kept outside it.
-      DATABASE_URL: sqlite:////app/data/frigi.db
+      # The RDS address comes from the .env file next to this one; without it,
+      # a SQLite file in the frigi-data volume is used.
+      DATABASE_URL: ${DATABASE_URL:-sqlite:////app/data/frigi.db}
       DETECTOR_WEIGHTS: /app/weights/checkpoint_best_total.pth
     volumes:
       - ./backend/weights:/app/weights:ro
