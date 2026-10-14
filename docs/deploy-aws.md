@@ -120,18 +120,18 @@ Open `http://44.218.50.2:8000/docs` in your browser. Send this address to the UI
 
 Apps and websites served over `https://` refuse to call a plain `http://` API, and iPhones block it by default. A free certificate needs a domain name, so we use a free DuckDNS name and Caddy, which gets and renews a Let's Encrypt certificate by itself.
 
-1. **Free domain.** Go to <https://www.duckdns.org>, sign in (GitHub or Google), type a sub-domain such as `frigi-ict304` and click **add domain**. In the **current ip** box enter `44.218.50.2` and click **update ip**. Your domain is now `frigi-ict304.duckdns.org`.
+1. **Free domain.** Go to <https://www.duckdns.org>, sign in (GitHub or Google), type a sub-domain such as `frigi-app` and click **add domain**. In the **current ip** box enter `44.218.50.2` and click **update ip**. Your domain is now `frigi-app.duckdns.org`.
 2. **Open ports 80 and 443.** EC2 → Instances → `frigi-backend` → **Security** tab → click the security group → **Edit inbound rules** → **Add rule** twice: **HTTP** (80) from **Anywhere-IPv4**, and **HTTPS** (443) from **Anywhere-IPv4** → **Save rules**.
 3. **On the server**, set the domain and start Caddy:
 
    ```bash
    cd ~/frigi && git pull
-   echo "FRIGI_DOMAIN=frigi-ict304.duckdns.org" > .env
+   echo "FRIGI_DOMAIN=frigi-app.duckdns.org" > .env
    docker compose --profile https up -d --build
    docker compose logs -f caddy     # wait for "certificate obtained successfully", then Ctrl+C
    ```
 
-4. Open `https://frigi-ict304.duckdns.org/docs`. The padlock in the address bar means HTTPS works. Give this address to the UI developer instead of the `:8000` one.
+4. Open `https://frigi-app.duckdns.org/docs`. The padlock in the address bar means HTTPS works. Give this address to the UI developer instead of the `:8000` one.
 
 From now on, start and update the server with `docker compose --profile https up -d --build` so Caddy runs too.
 
