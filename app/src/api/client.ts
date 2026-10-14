@@ -9,7 +9,7 @@ import type {
   Profile, Recipe, SignupInput, SwapResult,
 } from './types';
 
-export const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://44.218.50.2:8000';
+export const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'https://frigi-app.duckdns.org';
 export const USE_MOCK = process.env.EXPO_PUBLIC_USE_MOCK === 'true';
 
 /** Error from the backend's { error: { code, message } } format. `message` is safe to show. */
