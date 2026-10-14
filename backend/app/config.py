@@ -18,7 +18,10 @@ class Settings(BaseSettings):
 
     gemini_api_key: str = ""
     gemini_model: str = "gemini-3.8-flash"
+    gemini_fallback_model: str = "gemini-3.5-flash-lite"
     spoonacular_api_key: str = ""
+    # "hybrid": Spoonacular recipes picked by Gemini. "llm": Gemini writes recipes (comparison tests).
+    chef_source: str = "hybrid"
 
 
 @lru_cache
