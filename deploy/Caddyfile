@@ -1,0 +1,9 @@
+# Caddy gets and renews a free Let's Encrypt certificate for this domain automatically,
+# then forwards HTTPS requests to the API container.
+{$FRIGI_DOMAIN} {
+	request_body {
+		# Up to 3 photos of 10 MB each
+		max_size 35MB
+	}
+	reverse_proxy api:8000
+}

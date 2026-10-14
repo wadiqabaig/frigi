@@ -40,13 +40,13 @@ Without this, the address changes every time the server is stopped and started.
 
 1. EC2 → **Elastic IPs** → **Allocate Elastic IP address** → **Allocate**.
 2. Select it → **Actions → Associate Elastic IP address** → choose `frigi-backend` → **Associate**.
-3. Write down the IP address. Below it is called `SERVER_IP`.
+3. Write down the IP address. Below it is called `SERVER_IP`. 44.218.50.2
 
 ## Step 4. Connect from your Mac
 
 ```bash
 mv ~/Downloads/frigi-key.pem ~/.ssh/ && chmod 400 ~/.ssh/frigi-key.pem
-ssh -i ~/.ssh/frigi-key.pem ubuntu@SERVER_IP
+ssh -i ~/.ssh/frigi-key.pem ubuntu@44.218.50.2
 ```
 
 Type `yes` the first time. The prompt changes to `ubuntu@ip-...`: you are now on the server.
@@ -72,9 +72,9 @@ Open a second Terminal on your Mac (not the server):
 
 ```bash
 cd ~/Desktop/"ICT304 A1"/frigi/backend
-ssh -i ~/.ssh/frigi-key.pem ubuntu@SERVER_IP "mkdir -p frigi/backend/weights"
-scp -i ~/.ssh/frigi-key.pem .env ubuntu@SERVER_IP:frigi/backend/.env
-scp -i ~/.ssh/frigi-key.pem weights/checkpoint_best_total.pth ubuntu@SERVER_IP:frigi/backend/weights/
+ssh -i ~/.ssh/frigi-key.pem ubuntu@44.218.50.2 "mkdir -p frigi/backend/weights"
+scp -i ~/.ssh/frigi-key.pem .env ubuntu@44.218.50.2:frigi/backend/.env
+scp -i ~/.ssh/frigi-key.pem weights/checkpoint_best_total.pth ubuntu@44.218.50.2:frigi/backend/weights/
 ```
 
 ## Step 7. Production settings (on the server)
@@ -100,7 +100,7 @@ The first build downloads PyTorch and takes 5 to 10 minutes. Then check:
 docker compose logs -f api     # Ctrl+C to stop watching
 ```
 
-Open `http://SERVER_IP:8000/docs` in your browser. Send this address to the UI developer.
+Open `http://44.218.50.2:8000/docs` in your browser. Send this address to the UI developer.
 
 ---
 
@@ -113,3 +113,26 @@ Open `http://SERVER_IP:8000/docs` in your browser. Send this address to the UI d
 | Restart | server | `docker compose restart api` |
 | Stop the server to save money | AWS console | EC2 → Instances → select → **Instance state → Stop** |
 | Start it again | AWS console | **Instance state → Start**; Docker starts the API by itself |
+
+---
+
+## Step 9. HTTPS with a free certificate
+
+Apps and websites served over `https://` refuse to call a plain `http://` API, and iPhones block it by default. A free certificate needs a domain name, so we use a free DuckDNS name and Caddy, which gets and renews a Let's Encrypt certificate by itself.
+
+1. **Free domain.** Go to <https://www.duckdns.org>, sign in (GitHub or Google), type a sub-domain such as `frigi-ict304` and click **add domain**. In the **current ip** box enter `44.218.50.2` and click **update ip**. Your domain is now `frigi-ict304.duckdns.org`.
+2. **Open ports 80 and 443.** EC2 → Instances → `frigi-backend` → **Security** tab → click the security group → **Edit inbound rules** → **Add rule** twice: **HTTP** (80) from **Anywhere-IPv4**, and **HTTPS** (443) from **Anywhere-IPv4** → **Save rules**.
+3. **On the server**, set the domain and start Caddy:
+
+   ```bash
+   cd ~/frigi && git pull
+   echo "FRIGI_DOMAIN=frigi-ict304.duckdns.org" > .env
+   docker compose --profile https up -d --build
+   docker compose logs -f caddy     # wait for "certificate obtained successfully", then Ctrl+C
+   ```
+
+4. Open `https://frigi-ict304.duckdns.org/docs`. The padlock in the address bar means HTTPS works. Give this address to the UI developer instead of the `:8000` one.
+
+From now on, start and update the server with `docker compose --profile https up -d --build` so Caddy runs too.
+
+Once the app uses the HTTPS address, remove the port 8000 rule from the security group so all traffic is encrypted.

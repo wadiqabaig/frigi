@@ -93,6 +93,11 @@ def get_detector():
     return _detector
 
 
+def warm_up() -> None:
+    """Load the detector and run it once on a blank image."""
+    get_detector().predict(Image.new("RGB", (640, 640), "white"))
+
+
 def merge(photo_results: list[dict]) -> list[dict]:
     """Combine detections from all photos into one list with no duplicates (FR4)."""
     merged: dict[str, dict] = {}

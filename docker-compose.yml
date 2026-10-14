@@ -14,6 +14,23 @@ services:
       - frigi-cache:/app/cache
     restart: unless-stopped
 
+  # HTTPS in front of the API. Only started with: docker compose --profile https up -d
+  caddy:
+    image: caddy:2.8
+    profiles: ["https"]
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      FRIGI_DOMAIN: ${FRIGI_DOMAIN:-}  # set in the .env file next to this one
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+    depends_on:
+      - api
+    restart: unless-stopped
+
 volumes:
   frigi-data:
   frigi-cache:
+  caddy-data:
