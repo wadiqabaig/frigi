@@ -1,0 +1,115 @@
+# Deploying the Frigi backend to AWS
+
+One EC2 server in **US East (N. Virginia), `us-east-1`** runs the backend in Docker.
+
+## Why this setup
+
+| Choice | Reason |
+|---|---|
+| `us-east-1` | Among the cheapest AWS regions. Gemini and Spoonacular are US services, so recipe calls are quick from there; the extra delay to Perth (about 0.25 s per request) is small next to detection and LLM time. |
+| `t3.medium` (2 vCPU, 4 GB) | RF-DETR needs about 2 GB of memory; the free-tier `t3.micro` (1 GB) cannot load it. About US$0.04 per hour while running. |
+| Docker | The server runs exactly the same code and versions as a laptop. |
+| SQLite in a Docker volume | Simple to start; can move to RDS later without code changes (`DATABASE_URL`). |
+
+**Cost control:** stop the instance whenever nobody is using it. A stopped instance costs only its disk (about US$1.60 a month for 20 GB) and the Elastic IP (about US$3.60 a month).
+
+---
+
+## Step 1. Budget alert (do this first)
+
+1. AWS console → search **Budgets** → **Create budget** → **Use a template** → **Monthly cost budget**.
+2. Amount: **5** USD. Email: your own. **Create budget**.
+
+## Step 2. Launch the server
+
+1. Top-right region menu → **US East (N. Virginia) us-east-1**.
+2. Search **EC2** → **Launch instance**.
+3. Name: `frigi-backend`.
+4. Image: **Ubuntu Server 24.04 LTS** (64-bit x86).
+5. Instance type: **t3.medium**.
+6. Key pair: **Create new key pair** → name `frigi-key`, type RSA, format `.pem` → it downloads. Keep it safe; never put it in GitHub.
+7. Network settings → **Edit**:
+   - Keep the SSH rule, but set **Source type: My IP**.
+   - **Add security group rule**: Type **Custom TCP**, Port **8000**, Source **Anywhere (0.0.0.0/0)**, description `Frigi API`.
+8. Storage: **20 GiB gp3**.
+9. **Launch instance**.
+
+## Step 3. Give it a fixed address
+
+Without this, the address changes every time the server is stopped and started.
+
+1. EC2 → **Elastic IPs** → **Allocate Elastic IP address** → **Allocate**.
+2. Select it → **Actions → Associate Elastic IP address** → choose `frigi-backend` → **Associate**.
+3. Write down the IP address. Below it is called `SERVER_IP`.
+
+## Step 4. Connect from your Mac
+
+```bash
+mv ~/Downloads/frigi-key.pem ~/.ssh/ && chmod 400 ~/.ssh/frigi-key.pem
+ssh -i ~/.ssh/frigi-key.pem ubuntu@SERVER_IP
+```
+
+Type `yes` the first time. The prompt changes to `ubuntu@ip-...`: you are now on the server.
+
+## Step 5. Install Docker and get the code (on the server)
+
+```bash
+sudo apt update && sudo apt install -y docker.io docker-compose-v2 gh
+sudo usermod -aG docker ubuntu
+exit
+```
+
+Reconnect (Step 4) so the Docker permission applies, then:
+
+```bash
+gh auth login        # GitHub.com → HTTPS → Login with a web browser; open the link on your Mac
+gh repo clone wadiqabaig/frigi
+```
+
+## Step 6. Copy the secrets and model weights (on your Mac)
+
+Open a second Terminal on your Mac (not the server):
+
+```bash
+cd ~/Desktop/"ICT304 A1"/frigi/backend
+ssh -i ~/.ssh/frigi-key.pem ubuntu@SERVER_IP "mkdir -p frigi/backend/weights"
+scp -i ~/.ssh/frigi-key.pem .env ubuntu@SERVER_IP:frigi/backend/.env
+scp -i ~/.ssh/frigi-key.pem weights/checkpoint_best_total.pth ubuntu@SERVER_IP:frigi/backend/weights/
+```
+
+## Step 7. Production settings (on the server)
+
+```bash
+cd ~/frigi/backend
+python3 -c "import secrets; print(secrets.token_hex(32))"
+nano .env
+```
+
+In `.env`, set `SECRET_KEY=` to the long value just printed and check `DETECTOR=rfdetr`. Save with **Ctrl+O, Enter**, exit with **Ctrl+X**.
+
+## Step 8. Start it (on the server)
+
+```bash
+cd ~/frigi
+docker compose up -d --build
+```
+
+The first build downloads PyTorch and takes 5 to 10 minutes. Then check:
+
+```bash
+docker compose logs -f api     # Ctrl+C to stop watching
+```
+
+Open `http://SERVER_IP:8000/docs` in your browser. Send this address to the UI developer.
+
+---
+
+## Everyday commands
+
+| Task | Where | Command |
+|---|---|---|
+| Deploy new code from `main` | server | `cd ~/frigi && git pull && docker compose up -d --build` |
+| See logs | server | `docker compose logs -f api` |
+| Restart | server | `docker compose restart api` |
+| Stop the server to save money | AWS console | EC2 → Instances → select → **Instance state → Stop** |
+| Start it again | AWS console | **Instance state → Start**; Docker starts the API by itself |
