@@ -1,0 +1,36 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Frigi — single warm light theme by design (brand palette), set explicitly so the
+   page looks right on any host background. Layout: sidebar + content on desktop,
+   bottom nav on phones. */
+:root {
+  --frigi-red: #E5332A;
+  --frigi-sun: #FEB506;
+  --frigi-cream: #F2E5D3;
+  --frigi-brown: #31170E;
+  --frigi-paper: #FFF9F2;
+  --frigi-white: #FFFFFF;
+  color-scheme: light;
+}
+
+@layer base {
+  html, body, #root { height: 100%; }
+  body {
+    background: var(--frigi-paper);
+    color: var(--frigi-brown);
+    font-family: Nunito, ui-rounded, system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -webkit-tap-highlight-color: transparent;
+    overflow-x: hidden;
+  }
+  body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--frigi-paper); }
+  :focus-visible { outline: 3px solid var(--frigi-sun); outline-offset: 2px; border-radius: 12px; }
+  button { -webkit-user-select: none; user-select: none; }
+  ::selection { background: #FFEAB0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
+}
