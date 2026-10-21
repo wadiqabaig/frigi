@@ -1,21 +1,30 @@
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
-import { ArrowLeft, Camera, ImagePlus, RefreshCw, ScanLine, Sparkles, Trash2, Upload as UploadIcon } from 'lucide-react'
+import { ArrowLeft, Camera, ImagePlus, RefreshCw, ScanLine, Trash2, Upload as UploadIcon } from 'lucide-react'
 import { useRef, useState } from 'react'
 import { POSES } from '../assets'
-import { FridgeSample } from '../components/FridgeSample'
 import { JourneySteps } from '../components/Shell'
 import { Button, IconButton, Mascot } from '../components/ui'
 import { cx } from '../lib/format'
 import { useApp, type Photo } from '../state/AppState'
 
+// Limits from docs/api-contract.md, POST /detect.
 const OK_EXT = ['jpg', 'jpeg', 'png', 'heic', 'heif']
 const MAX = 3
+const MAX_BYTES = 10 * 1024 * 1024
+// File extension in lowercase.
 const ext = (n: string) => n.split('.').pop()?.toLowerCase() ?? ''
+// HEIC photos can't be previewed in most browsers but can still be scanned.
 const isHeic = (f: File) => ['heic', 'heif'].includes(ext(f.name)) || /hei[cf]/i.test(f.type)
-const isOk = (f: File) => OK_EXT.includes(ext(f.name)) || ['image/jpeg', 'image/png', 'image/heic', 'image/heif'].includes(f.type)
+// True for JPG, PNG and HEIC files.
+const isType = (f: File) => OK_EXT.includes(ext(f.name)) || ['image/jpeg', 'image/png', 'image/heic', 'image/heif'].includes(f.type)
+// True for a supported photo within the size limit.
+const isOk = (f: File) => isType(f) && f.size <= MAX_BYTES
+// Explains why a file was rejected.
+const whyNot = (f: File) => (isType(f) ? `${f.name} is larger than 10 MB` : `${f.name} isn’t a JPG, PNG or HEIC photo`)
 
 type Notice = { kind: 'too-many' | 'bad-format'; text: string } | null
 
+// Choose or take up to three fridge photos.
 export function Upload() {
   const { photos, setPhotos, go, back } = useApp()
   const [notice, setNotice] = useState<Notice>(null)
@@ -26,8 +35,10 @@ export function Upload() {
   const replaceIdx = useRef<number>(-1)
   const reduce = useReducedMotion()
 
+  // Wraps a file with a preview URL (none for HEIC).
   const toPhoto = (f: File): Photo => ({ id: crypto.randomUUID?.() ?? String(Math.random()), name: f.name, file: f, heic: isHeic(f), url: isHeic(f) ? null : URL.createObjectURL(f) })
 
+  // Adds valid photos up to the limit and explains anything that was skipped.
   const addFiles = (list: FileList | File[] | null) => {
     if (!list) return
     const files = [...list]
@@ -35,26 +46,24 @@ export function Upload() {
     const good = files.filter(isOk)
     const room = MAX - photos.length
     let n: Notice = null
-    if (bad.length) n = { kind: 'bad-format', text: `${bad.map((b) => b.name).join(', ')} ${bad.length > 1 ? 'aren’t' : 'isn’t'} a supported photo. Frigi reads JPG, JPEG, PNG and HEIC.` }
+    if (bad.length) n = { kind: 'bad-format', text: `${bad.map(whyNot).join('; ')}. Frigi reads JPG, PNG and HEIC photos up to 10 MB.` }
     if (good.length > room) n = { kind: 'too-many', text: `Frigi can look at up to ${MAX} photos at once, so I kept the first ${Math.max(room, 0)}. Remove one to swap it out.` }
     setNotice(n)
     if (room > 0 && good.length) setPhotos([...photos, ...good.slice(0, room).map(toPhoto)])
   }
 
+  // Removes a photo and frees its preview.
   const remove = (i: number) => {
     const p = photos[i]
-    if (p.url && !p.sample) URL.revokeObjectURL(p.url)
+    if (p.url) URL.revokeObjectURL(p.url)
     setPhotos(photos.filter((_, j) => j !== i)); setNotice(null)
   }
+  // Swaps one photo for another file.
   const replace = (i: number, f: File | undefined) => {
     if (!f) return
-    if (!isOk(f)) { setNotice({ kind: 'bad-format', text: `${f.name} isn’t a supported photo. Try a JPG, PNG or HEIC.` }); return }
-    const old = photos[i]; if (old.url && !old.sample) URL.revokeObjectURL(old.url)
+    if (!isOk(f)) { setNotice({ kind: 'bad-format', text: `${whyNot(f)}. Try a JPG, PNG or HEIC photo up to 10 MB.` }); return }
+    const old = photos[i]; if (old.url) URL.revokeObjectURL(old.url)
     setPhotos(photos.map((p, j) => (j === i ? toPhoto(f) : p))); setNotice(null)
-  }
-  const addSample = () => {
-    if (photos.length >= MAX) { setNotice({ kind: 'too-many', text: 'You already have 3 photos. Remove one to add the sample fridge.' }); return }
-    setPhotos([...photos, { id: 'sample-' + Date.now(), name: 'Sample fridge (demo)', url: null, sample: true }]); setNotice(null)
   }
 
   return (
@@ -83,7 +92,7 @@ export function Upload() {
               <Camera size={34} strokeWidth={2.2} />
             </motion.div>
             <p className="mt-4 font-display text-xl font-semibold text-brown">{drag ? 'Drop them in!' : 'Drag photos here, or choose from your device'}</p>
-            <p className="mt-1 text-sm text-brown-70">JPG, JPEG, PNG or HEIC · up to {MAX} photos · {photos.length}/{MAX} added</p>
+            <p className="mt-1 text-sm text-brown-70">JPG, PNG or HEIC · up to 10 MB each · {photos.length}/{MAX} added</p>
             <div className="mt-5 flex flex-col justify-center gap-2.5 sm:flex-row">
               <Button onClick={() => fileRef.current?.click()} icon={<UploadIcon size={18} />} disabled={photos.length >= MAX}>Choose photos</Button>
               <Button variant="secondary" onClick={() => camRef.current?.click()} icon={<Camera size={18} />} disabled={photos.length >= MAX}>Take a photo</Button>
@@ -113,7 +122,7 @@ export function Upload() {
             <AnimatePresence>
               {photos.map((p, i) => (
                 <motion.figure key={p.id} layout initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.8 }} className="group relative aspect-[4/5] overflow-hidden rounded-4xl bg-cream-50 shadow-soft">
-                  {p.sample ? <FridgeSample className="h-full w-full" /> : p.url ? <img src={p.url} alt={`Fridge photo ${i + 1}`} className="h-full w-full object-cover" /> : (
+                  {p.url ? <img src={p.url} alt={`Fridge photo ${i + 1}`} className="h-full w-full object-cover" /> : (
                     <div className="grid h-full place-items-center p-4 text-center">
                       <div>
                         <ImagePlus className="mx-auto text-brown-50" size={32} />
@@ -123,22 +132,15 @@ export function Upload() {
                     </div>
                   )}
                   <figcaption className="absolute inset-x-2 bottom-2 flex items-center justify-between gap-1 rounded-2xl bg-white/90 p-1.5 pl-3 backdrop-blur">
-                    <span className="truncate text-xs font-bold text-brown">{p.sample ? 'Sample fridge' : `Photo ${i + 1}`}</span>
+                    <span className="truncate text-xs font-bold text-brown">Photo {i + 1}</span>
                     <span className="flex gap-1">
-                      {!p.sample && <button onClick={() => { replaceIdx.current = i; replaceRef.current?.click() }} aria-label={`Replace photo ${i + 1}`} className="grid h-8 w-8 place-items-center rounded-full bg-cream-50 text-brown hover:bg-cream"><RefreshCw size={14} /></button>}
-                      <button onClick={() => remove(i)} aria-label={`Remove ${p.sample ? 'sample photo' : `photo ${i + 1}`}`} className="grid h-8 w-8 place-items-center rounded-full bg-red-50 text-red hover:bg-red-100"><Trash2 size={14} /></button>
+                      <button onClick={() => { replaceIdx.current = i; replaceRef.current?.click() }} aria-label={`Replace photo ${i + 1}`} className="grid h-8 w-8 place-items-center rounded-full bg-cream-50 text-brown hover:bg-cream"><RefreshCw size={14} /></button>
+                      <button onClick={() => remove(i)} aria-label={`Remove photo ${i + 1}`} className="grid h-8 w-8 place-items-center rounded-full bg-red-50 text-red hover:bg-red-100"><Trash2 size={14} /></button>
                     </span>
                   </figcaption>
                 </motion.figure>
               ))}
             </AnimatePresence>
-            {photos.length < MAX && (
-              <button onClick={addSample} className="flex aspect-[4/5] flex-col items-center justify-center gap-2 rounded-4xl bg-sun-50 p-4 text-center transition-colors hover:bg-sun-100">
-                <Sparkles className="text-sun-700" size={26} />
-                <span className="text-sm font-bold text-brown">No fridge handy?</span>
-                <span className="text-xs text-brown-70">Use Frigi’s sample fridge photo</span>
-              </button>
-            )}
           </div>
 
           <div className="sticky bottom-[96px] z-10 mt-6 lg:static">

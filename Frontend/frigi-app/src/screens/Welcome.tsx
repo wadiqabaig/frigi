@@ -3,15 +3,16 @@ import { ArrowRight, Sparkles } from 'lucide-react'
 import { ICONS, POSES } from '../assets'
 import { IngredientGlyph } from '../components/IngredientIcon'
 import { Button, Logo, Mascot } from '../components/ui'
-import { DEMO_PROFILE, useApp } from '../state/AppState'
+import type { GlyphKey } from '../lib/ingredientVisual'
+import { useApp } from '../state/AppState'
 
-const FLOATERS = [
+const FLOATERS: { id: GlyphKey; x: string; y: string; s: number; d: number; r: number }[] = [
   { id: 'tomato', x: '6%', y: '14%', s: 64, d: 0, r: 8 },
-  { id: 'cheddar', x: '78%', y: '8%', s: 58, d: 0.6, r: -10 },
-  { id: 'spinach', x: '84%', y: '56%', s: 62, d: 1.2, r: 12 },
+  { id: 'cheese', x: '78%', y: '8%', s: 58, d: 0.6, r: -10 },
+  { id: 'leafy', x: '84%', y: '56%', s: 62, d: 1.2, r: 12 },
   { id: 'eggs', x: '2%', y: '62%', s: 56, d: 1.8, r: -8 },
   { id: 'lemon', x: '68%', y: '84%', s: 46, d: 0.9, r: 14 },
-  { id: 'pepper', x: '20%', y: '86%', s: 44, d: 1.5, r: -12 },
+  { id: 'greenchilli', x: '20%', y: '86%', s: 44, d: 1.5, r: -12 },
 ]
 
 const HOW = [
@@ -20,10 +21,10 @@ const HOW = [
   { pose: POSES.recommends, title: 'Cook something good', body: 'Recipes that use what you already have.' },
 ]
 
+// Landing page for signed-out visitors.
 export function Welcome() {
-  const { go, startSession, profile } = useApp()
+  const { go } = useApp()
   const reduce = useReducedMotion()
-  const explore = () => startSession({ kind: 'guest' }, profile.email ? DEMO_PROFILE : profile)
   return (
     <div className="relative min-h-full overflow-hidden">
       {/* warm ambient shapes */}
@@ -32,8 +33,7 @@ export function Welcome() {
 
       <div className="relative mx-auto flex max-w-[1180px] flex-col pl-[max(16px,env(safe-area-inset-left,0px))] pr-[max(16px,env(safe-area-inset-right,0px))] pb-10 pt-5 sm:px-8 lg:px-10">
         <header className="flex items-center justify-between">
-          <Logo className="h-10 sm:h-11" />
-          <Button type="button" onClick={() => go('login')} className="shrink-0" iconRight={<ArrowRight size={16} />}>Log in</Button>
+          <Logo className="h-10 origin-top-left scale-125 sm:h-11" />
         </header>
 
         <div className="mt-4 grid items-center gap-6 lg:mt-6 lg:grid-cols-[1.05fr_1fr] lg:gap-10">
@@ -57,7 +57,7 @@ export function Welcome() {
                 animate={reduce ? { scale: 1 } : { scale: 1, rotate: 0, y: [0, -12, 0] }}
                 transition={{ scale: { delay: 0.3 + i * 0.08, type: 'spring' }, rotate: { delay: 0.3 + i * 0.08 }, y: { duration: 4 + i * 0.3, repeat: Infinity, ease: 'easeInOut', delay: f.d } }}
               >
-                <IngredientGlyph id={f.id} className="h-[72%] w-[72%]" />
+                <IngredientGlyph glyph={f.id} className="h-[72%] w-[72%]" />
               </motion.div>
             ))}
             <div className="absolute inset-x-0 bottom-[2%] z-[1] flex justify-center">
@@ -82,10 +82,9 @@ export function Welcome() {
               Snap a photo of your fridge. Frigi recognises your ingredients, asks what you’re craving, and suggests recipes you can cook right now.
             </motion.p>
             <motion.div initial={reduce ? false : { opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.24 }} className="mx-auto mt-8 flex max-w-sm flex-col gap-3 sm:max-w-none sm:flex-row sm:justify-center lg:justify-start">
-              <Button size="lg" onClick={explore} iconRight={<ArrowRight size={18} />}>Explore Demo</Button>
-              <Button size="lg" variant="outline" onClick={() => go('signup')}>Get Started</Button>
+              <Button size="lg" onClick={() => go('signup')} iconRight={<ArrowRight size={18} />}>Get Started</Button>
+              <Button size="lg" variant="light" onClick={() => go('login')}>I have an account</Button>
             </motion.div>
-            <p className="mt-3 text-xs font-semibold text-brown-50">No sign-up needed for the demo. Continue as guest “Alex”.</p>
           </div>
         </div>
 

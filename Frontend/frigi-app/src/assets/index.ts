@@ -1,7 +1,6 @@
 import logo from './img/frigi-logo.webp'
 import main from './img/frigi-nobg.webp'
 import leaning from './img/frigi-leaning-nobg.webp'
-import hat from './img/frigi-hat-nobg.webp'
 import appLogo from './img/animated-app-logo.webp'
 import upload from './img/animated-upload-your-fridge.webp'
 import scanning from './img/animated-scanning.webp'
@@ -22,7 +21,6 @@ import iWhisk from './img/icon-whisker.webp'
 // Supplied Frigi brand assets. The "animated-*" scenes were cut out from their
 // yellow backgrounds so Frigi can float on any surface; motion is added in CSS/Framer.
 export const LOGO = logo
-export const HAT = hat
 export const POSES = {
   main, leaning, appLogo, upload, scanning, confirm, recommends, cooking, mealPlan, allergy, success, error,
 } as const
