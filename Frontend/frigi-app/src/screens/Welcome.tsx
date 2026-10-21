@@ -33,7 +33,7 @@ export function Welcome() {
       <div className="relative mx-auto flex max-w-[1180px] flex-col pl-[max(16px,env(safe-area-inset-left,0px))] pr-[max(16px,env(safe-area-inset-right,0px))] pb-10 pt-5 sm:px-8 lg:px-10">
         <header className="flex items-center justify-between">
           <Logo className="h-10 sm:h-11" />
-          <button onClick={() => go('login')} className="rounded-full px-4 py-2 text-sm font-bold text-brown-70 hover:bg-white hover:text-brown">Log in</button>
+          <Button type="button" onClick={() => go('login')} className="shrink-0" iconRight={<ArrowRight size={16} />}>Log in</Button>
         </header>
 
         <div className="mt-4 grid items-center gap-6 lg:mt-6 lg:grid-cols-[1.05fr_1fr] lg:gap-10">
