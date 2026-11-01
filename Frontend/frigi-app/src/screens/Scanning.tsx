@@ -1,35 +1,36 @@
-import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
-import { useEffect, useRef, useState } from 'react'
-import { FridgeSample } from '../components/FridgeSample'
-import { Mascot } from '../components/ui'
-import { ApiError, api, USE_MOCK_API } from '../lib/api'
+import { motion, useReducedMotion } from 'framer-motion'
+import { ImagePlus } from 'lucide-react'
+import { useEffect } from 'react'
+import { Button, Mascot } from '../components/ui'
+import { ApiError, api } from '../lib/api'
 import { useApp } from '../state/AppState'
 
-const STAGES = ['Frigi is taking a closer look…', 'Spotting your ingredients…', 'Putting everything together…']
-
+// Sends the photos to the detector and moves on when it answers.
 export function Scanning() {
-  const { photos, setScan, replace } = useApp()
-  const [stage, setStage] = useState(0)
-  const started = useRef(false)
+  const { photos, setScan, replace, back } = useApp()
   const reduce = useReducedMotion()
   const first = photos[0]
 
+  // One real detection request per visit; leaving the screen cancels it.
   useEffect(() => {
-    const t = setInterval(() => setStage((s) => Math.min(s + 1, STAGES.length - 1)), 800)
-    return () => clearInterval(t)
-  }, [])
-
-  useEffect(() => {
-    if (started.current) return
-    started.current = true
-    const files = photos.flatMap((p) => (p.file ? [p.file] : []))
-    api.scanFridge(files, Math.max(1, photos.length))
+    if (!photos.length) { replace('upload'); return }
+    const ctrl = new AbortController()
+    api.detect(photos.map((p) => p.file), ctrl.signal)
       .then((r) => {
         setScan(r)
-        if (r.detections.length === 0) replace('state', { kind: 'no-ingredients' })
-        else replace('ingredients')
+        replace(r.ingredients.length ? 'ingredients' : 'state', r.ingredients.length ? undefined : { kind: 'no-ingredients' })
       })
-      .catch((e: ApiError) => replace('state', { kind: e.kind === 'expired' ? 'expired' : 'server' }))
+      .catch((e: ApiError) => {
+        if (ctrl.signal.aborted || e.kind === 'aborted') return
+        if (e.kind === 'unauthorized') return
+        if (e.kind === 'validation') {
+          const kind = e.code === 'TOO_MANY_PHOTOS' ? 'too-many' : 'bad-format'
+          replace('state', { kind, message: e.message })
+          return
+        }
+        replace('state', { kind: 'server', message: e.message })
+      })
+    return () => ctrl.abort()
   }, [photos, replace, setScan])
 
   return (
@@ -37,9 +38,12 @@ export function Scanning() {
       <div className="relative grid w-full items-center gap-6 sm:grid-cols-[1fr_auto] sm:gap-0">
         {/* Photo with scanner */}
         <div className="relative mx-auto aspect-[4/5] w-full max-w-[340px] overflow-hidden rounded-5xl bg-white shadow-float">
-          {first?.url ? <img src={first.url} alt="Your fridge photo being scanned" className="h-full w-full object-cover" /> : <FridgeSample className="h-full w-full" />}
+          {first?.url ? <img src={first.url} alt="Your fridge photo being scanned" className="h-full w-full object-cover" /> : (
+            <div className="grid h-full place-items-center bg-cream-50 p-6 text-center">
+              <div><ImagePlus className="mx-auto text-brown-50" size={36} /><p className="mt-2 text-sm font-bold text-brown">{first?.name ?? 'Your photo'}</p></div>
+            </div>
+          )}
           <div className="absolute inset-0 bg-brown/10" />
-          {/* corner brackets */}
           {['left-4 top-4 border-l-4 border-t-4 rounded-tl-2xl', 'right-4 top-4 border-r-4 border-t-4 rounded-tr-2xl', 'left-4 bottom-4 border-l-4 border-b-4 rounded-bl-2xl', 'right-4 bottom-4 border-r-4 border-b-4 rounded-br-2xl'].map((c) => (
             <span key={c} className={`absolute h-10 w-10 border-sun ${c}`} aria-hidden />
           ))}
@@ -62,17 +66,13 @@ export function Scanning() {
       </div>
 
       <div className="mt-10 w-full max-w-md text-center">
-        <AnimatePresence mode="wait">
-          <motion.p key={stage} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="font-display text-2xl font-semibold text-brown">
-            {STAGES[stage]}
-          </motion.p>
-        </AnimatePresence>
-        <div className="mx-auto mt-5 h-3 w-full max-w-xs overflow-hidden rounded-full bg-cream" role="progressbar" aria-label="Scanning progress" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(((stage + 1) / STAGES.length) * 100)}>
-          <motion.div className="h-full rounded-full bg-red" initial={{ width: '6%' }} animate={{ width: `${((stage + 1) / STAGES.length) * 100}%` }} transition={{ duration: 0.8, ease: 'easeOut' }} />
+        <p className="font-display text-2xl font-semibold text-brown">Frigi is looking for your ingredients…</p>
+        {/* Indeterminate: the detector doesn't report progress, so we don't pretend to. */}
+        <div className="relative mx-auto mt-5 h-3 w-full max-w-xs overflow-hidden rounded-full bg-cream" role="progressbar" aria-label="Scanning" aria-valuetext="Scanning">
+          <motion.div className="absolute inset-y-0 w-1/3 rounded-full bg-red" initial={{ left: '-33%' }} animate={reduce ? { left: '33%' } : { left: ['-33%', '100%'] }} transition={{ duration: 1.4, repeat: Infinity, ease: 'easeInOut' }} />
         </div>
-        <p className="mt-4 text-xs font-bold text-brown-50">
-          {USE_MOCK_API ? 'Demo mode · RF-DETR Small detection is simulated' : 'Detecting with RF-DETR Small'}
-        </p>
+        <p className="mt-4 text-xs font-bold text-brown-50">Detecting with RF-DETR Small · photos are not stored</p>
+        <Button variant="ghost" size="sm" className="mt-3" onClick={back}>Cancel</Button>
       </div>
     </div>
   )

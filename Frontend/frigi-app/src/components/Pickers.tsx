@@ -1,11 +1,9 @@
 import { Check, Minus, Plus } from 'lucide-react'
-import { ALLERGEN_LABEL, DIET_LABEL } from '../lib/data/ingredients'
 import type { Allergen, Diet } from '../lib/types'
+import { ALLERGENS, ALLERGEN_LABEL, DIETS, DIET_LABEL } from '../lib/vocab'
 import { Chip } from './ui'
 
-export const ALLERGENS: Allergen[] = ['peanut', 'treenut', 'dairy', 'egg', 'gluten', 'soy', 'fish', 'shellfish', 'sesame']
-export const DIETS: Diet[] = ['none', 'vegetarian', 'vegan', 'pescatarian', 'halal']
-
+// Multi-select chips for the contract's allergy list.
 export function AllergyPicker({ value, onChange, labelId }: { value: Allergen[]; onChange: (v: Allergen[]) => void; labelId?: string }) {
   return (
     <div role="group" aria-labelledby={labelId} className="flex flex-wrap gap-2">
@@ -21,6 +19,7 @@ export function AllergyPicker({ value, onChange, labelId }: { value: Allergen[];
   )
 }
 
+// Single-choice chips for the user's diet.
 export function DietPicker({ value, onChange, labelId }: { value: Diet; onChange: (d: Diet) => void; labelId?: string }) {
   return (
     <div role="radiogroup" aria-labelledby={labelId} className="flex flex-wrap gap-2">
@@ -31,6 +30,7 @@ export function DietPicker({ value, onChange, labelId }: { value: Diet; onChange
   )
 }
 
+// Minus/plus control for a whole number, such as servings.
 export function Stepper({ value, onChange, min = 1, max = 12, label }: { value: number; onChange: (n: number) => void; min?: number; max?: number; label: string }) {
   return (
     <div className="inline-flex items-center gap-1 rounded-full bg-white p-1 shadow-soft" role="group" aria-label={label}>
@@ -41,6 +41,7 @@ export function Stepper({ value, onChange, min = 1, max = 12, label }: { value: 
   )
 }
 
+// A labelled form field with an optional hint or error message.
 export function Field({ id, label, error, hint, children }: { id: string; label: string; error?: string; hint?: string; children: React.ReactNode }) {
   return (
     <div>

@@ -5,14 +5,17 @@ import { LOGO, POSES, POSE_ALT, type Pose } from '../assets'
 import { cx } from '../lib/format'
 
 /* ------------------------------------------------------------------ Button */
-type BtnVariant = 'primary' | 'secondary' | 'ghost' | 'sun' | 'outline'
+type BtnVariant = 'primary' | 'secondary' | 'ghost' | 'sun' | 'outline' | 'light'
 const BTN: Record<BtnVariant, string> = {
   primary: 'bg-red text-white shadow-red hover:bg-red-600',
   secondary: 'bg-cream text-brown hover:bg-cream-200',
   ghost: 'bg-transparent text-brown hover:bg-cream-50',
   sun: 'bg-sun text-brown hover:brightness-95 shadow-[0_12px_24px_-12px_rgba(254,181,6,.8)]',
   outline: 'bg-white text-brown ring-1 ring-inset ring-brown-20 hover:ring-brown-50',
+  // White partner to `primary`: same raised look, with a white glow that brightens on hover.
+  light: 'bg-white text-brown ring-1 ring-inset ring-brown-20 shadow-glow transition-shadow hover:shadow-glow-lg',
 }
+// Frigi's pill button with a small lift on hover and press on tap.
 export function Button({
   variant = 'primary', size = 'md', className, children, icon, iconRight, ...rest
 }: HTMLMotionProps<'button'> & { variant?: BtnVariant; size?: 'sm' | 'md' | 'lg'; icon?: ReactNode; iconRight?: ReactNode }) {
@@ -38,6 +41,7 @@ export function Button({
   )
 }
 
+// Round icon-only button; `label` is used for screen readers and the tooltip.
 export function IconButton({ label, className, children, ...rest }: HTMLMotionProps<'button'> & { label: string }) {
   return (
     <motion.button
@@ -122,20 +126,6 @@ export function Mascot({
   )
 }
 
-/** Floating wrapper for decorative elements */
-export function Floating({ children, className, delay = 0, distance = 10, duration = 3.6, rotate = 0 }: { children: ReactNode; className?: string; delay?: number; distance?: number; duration?: number; rotate?: number }) {
-  const reduce = useReducedMotion()
-  return (
-    <motion.div
-      className={className}
-      animate={reduce ? {} : { y: [0, -distance, 0], rotate: [0, rotate, 0] }}
-      transition={{ duration, repeat: Infinity, ease: 'easeInOut', delay }}
-    >
-      {children}
-    </motion.div>
-  )
-}
-
 /** Small circular/rounded avatar crop of a pose */
 export function PoseThumb({ pose, className, zoom = 1.25 }: { pose: Pose; className?: string; zoom?: number }) {
   return (
@@ -201,14 +191,11 @@ export function SectionTitle({ children, action, id }: { children: ReactNode; ac
   )
 }
 
+// Small rounded label in one of the brand tones.
 export function Pill({ children, tone = 'cream', className }: { children: ReactNode; tone?: 'cream' | 'sun' | 'red' | 'leaf' | 'white'; className?: string }) {
   const t = {
     cream: 'bg-cream-50 text-brown-70', sun: 'bg-sun-50 text-sun-700', red: 'bg-red-50 text-red-600',
     leaf: 'bg-leaf-50 text-leaf', white: 'bg-white text-brown-70',
   }[tone]
   return <span className={cx('inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold', t, className)}>{children}</span>
-}
-
-export function Card({ children, className, ...rest }: HTMLMotionProps<'div'>) {
-  return <motion.div className={cx('rounded-4xl bg-white shadow-soft', className)} {...rest}>{children}</motion.div>
 }

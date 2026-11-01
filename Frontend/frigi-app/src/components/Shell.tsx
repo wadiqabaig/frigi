@@ -1,10 +1,9 @@
 import { AnimatePresence, motion } from 'framer-motion'
-import { Bookmark, ChefHat, FlaskConical, Home, ScanLine, User } from 'lucide-react'
-import { useState, type ReactNode } from 'react'
+import { Bookmark, ChefHat, Home, ScanLine, ShieldCheck, User } from 'lucide-react'
+import type { ReactNode } from 'react'
 import { POSES } from '../assets'
 import { cx } from '../lib/format'
 import { useApp, type ScreenName } from '../state/AppState'
-import { DemoMenu } from './DemoMenu'
 import { Logo } from './ui'
 
 const NAV: { key: string; label: string; icon: typeof Home; to: ScreenName; match: ScreenName[] }[] = [
@@ -12,14 +11,13 @@ const NAV: { key: string; label: string; icon: typeof Home; to: ScreenName; matc
   { key: 'scan', label: 'Scan', icon: ScanLine, to: 'upload', match: ['upload', 'scanning', 'ingredients'] },
   { key: 'chef', label: 'Chef', icon: ChefHat, to: 'chef', match: ['chef', 'recipes', 'recipe'] },
   { key: 'saved', label: 'Saved', icon: Bookmark, to: 'saved', match: ['saved'] },
-  { key: 'profile', label: 'Profile', icon: User, to: 'profile', match: ['profile', 'states'] },
+  { key: 'profile', label: 'Profile', icon: User, to: 'profile', match: ['profile'] },
 ]
 
+// App frame: sidebar on desktop, bottom navigation on phones.
 export function Shell({ children }: { children: ReactNode }) {
-  const { route, go } = useApp()
-  const [demoOpen, setDemoOpen] = useState(false)
+  const { route, go, profile } = useApp()
   const active = NAV.find((n) => n.match.includes(route.name))?.key
-  const goNav = (to: ScreenName) => go(to)
 
   return (
     <div className="min-h-full lg:flex">
@@ -32,7 +30,7 @@ export function Shell({ children }: { children: ReactNode }) {
             return (
               <button
                 key={n.key}
-                onClick={() => goNav(n.to)}
+                onClick={() => go(n.to)}
                 aria-current={on ? 'page' : undefined}
                 className={cx('relative flex h-12 items-center gap-3 rounded-2xl px-4 text-[15px] font-bold transition-colors', on ? 'text-white' : 'text-brown-70 hover:bg-cream-50 hover:text-brown')}
               >
@@ -46,10 +44,10 @@ export function Shell({ children }: { children: ReactNode }) {
         <div className="mt-auto">
           <div className="relative overflow-visible rounded-3xl bg-sun-50 p-4 pt-[72px]">
             <img src={POSES.leaning} alt="" className="absolute -top-10 left-1/2 w-24 -translate-x-1/2" />
-            <p className="font-display text-[15px] font-semibold text-brown">Demo mode</p>
-            <p className="mt-1 text-xs leading-relaxed text-brown-70">Everything runs on sample data. Try the test scenarios.</p>
-            <button onClick={() => setDemoOpen(true)} className="mt-3 inline-flex h-9 items-center gap-2 rounded-full bg-white px-4 text-sm font-bold text-brown shadow-soft hover:bg-cream-50">
-              <FlaskConical size={16} /> Demo menu
+            <p className="truncate font-display text-[15px] font-semibold text-brown">Hi {profile?.name ?? 'chef'}!</p>
+            <p className="mt-1 text-xs leading-relaxed text-brown-70">Your allergies and diet are checked on every recipe.</p>
+            <button onClick={() => go('profile')} className="mt-3 inline-flex h-9 items-center gap-2 rounded-full bg-white px-4 text-sm font-bold text-brown shadow-soft hover:bg-cream-50">
+              <ShieldCheck size={16} /> My preferences
             </button>
           </div>
         </div>
@@ -61,15 +59,6 @@ export function Shell({ children }: { children: ReactNode }) {
         </div>
       </main>
 
-      {/* Mobile demo button */}
-      <button
-        onClick={() => setDemoOpen(true)}
-        aria-label="Open demo menu"
-        className="fixed right-[max(12px,env(safe-area-inset-right,0px))] top-[calc(env(safe-area-inset-top,0px)+12px)] z-30 grid h-10 w-10 place-items-center rounded-full bg-white/90 text-brown-70 shadow-soft backdrop-blur lg:hidden"
-      >
-        <FlaskConical size={18} />
-      </button>
-
       {/* Mobile bottom nav */}
       <nav aria-label="Main" className="fixed inset-x-0 bottom-0 z-30 px-[max(12px,env(safe-area-inset-left,0px))] pb-[max(12px,env(safe-area-inset-bottom,0px))] lg:hidden">
         <div className="mx-auto flex max-w-md items-center justify-between rounded-[28px] bg-white/95 px-2 py-2 shadow-float backdrop-blur">
@@ -79,7 +68,7 @@ export function Shell({ children }: { children: ReactNode }) {
             return (
               <button
                 key={n.key}
-                onClick={() => goNav(n.to)}
+                onClick={() => go(n.to)}
                 aria-current={on ? 'page' : undefined}
                 aria-label={n.label}
                 className="relative flex flex-1 flex-col items-center gap-0.5 py-1"
@@ -100,12 +89,11 @@ export function Shell({ children }: { children: ReactNode }) {
           })}
         </div>
       </nav>
-
-      <DemoMenu open={demoOpen} onClose={() => setDemoOpen(false)} />
     </div>
   )
 }
 
+// Short confirmation message shown above the navigation.
 export function Toast() {
   const { toast } = useApp()
   return (
@@ -128,6 +116,7 @@ const STEPS: { key: ScreenName[]; label: string }[] = [
   { key: ['chef'], label: 'Chat' },
   { key: ['recipes', 'recipe'], label: 'Cook' },
 ]
+// Scan → Confirm → Chat → Cook progress pills.
 export function JourneySteps() {
   const { route } = useApp()
   const idx = STEPS.findIndex((s) => s.key.includes(route.name))

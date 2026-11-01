@@ -1,117 +1,123 @@
-// Shared domain types for Frigi. These mirror the shapes the UI needs; the API
-// client (src/lib/api.ts) adapts backend responses into these.
+// UI-facing domain types. The API layer (src/lib/api) maps backend responses into
+// these, so screens never depend on wire field names.
 
+/** Fixed vocabularies from docs/api-contract.md. */
 export type Diet = 'none' | 'vegetarian' | 'vegan' | 'pescatarian' | 'halal'
 export type Allergen =
-  | 'peanut' | 'treenut' | 'dairy' | 'egg' | 'gluten' | 'soy' | 'fish' | 'shellfish' | 'sesame'
+  | 'peanut' | 'tree_nut' | 'dairy' | 'egg' | 'gluten' | 'soy' | 'fish' | 'shellfish' | 'sesame'
 
-export type Cuisine = 'italian' | 'asian' | 'indian' | 'mediterranean' | 'other'
-export type CuisinePick = Cuisine | 'any'
-export type Mood = 'quick' | 'comfort' | 'healthy' | 'new'
+export interface User { id: number; name: string; email: string }
 
 export interface Profile {
+  id: number
   name: string
-  email?: string
-  age?: number
+  email: string
+  age: number | null
   householdSize: number
   diet: Diet
   allergies: Allergen[]
-  /** false until the user has explicitly reviewed allergies ("Not yet specified") */
-  allergiesSet: boolean
 }
 
-export type IngredientCategory = 'produce' | 'dairy' | 'protein' | 'grain' | 'pantry'
-/** Tags used for diet filtering */
-export type FoodTag = 'meat' | 'poultry' | 'pork' | 'fish' | 'shellfish' | 'animal' | 'alcohol'
-
-export interface Ingredient {
-  id: string
+export interface SignUpInput {
   name: string
-  category: IngredientCategory
-  allergens: Allergen[]
-  tags: FoodTag[]
-  /** staples are offered in “Did Frigi miss something?” */
-  staple?: boolean
+  email: string
+  password: string
+  age?: number
+  allergies: Allergen[]
+  diet: Diet
+  householdSize: number
+}
+
+/**
+ * An ingredient as the backend knows it. `id` is one of the detector's classes
+ * (e.g. "ground_beef"), or null for anything the user typed that is not one.
+ */
+export interface IngredientRef { id: string | null; name: string }
+
+/** An item on the user's confirmed fridge list. */
+export interface InventoryItem extends IngredientRef {
+  /** Detector confidence (0..1) when it came from a scan. */
+  confidence?: number
+  source: 'detected' | 'catalogue' | 'manual' | 'staple'
+}
+
+export interface IngredientSearchPage {
+  items: IngredientRef[]
+  total: number
+  hasMore: boolean
 }
 
 export interface Detection {
-  ingredientId: string
+  id: string
+  name: string
   confidence: number
-  /** normalised [x, y, w, h] in 0..1 relative to the photo */
+  /** Normalised [x, y, w, h] in 0..1 of the original photo. */
   box: [number, number, number, number]
-  imageIndex: number
 }
+
+export interface ScanPhoto { index: number; width: number; height: number; detections: Detection[] }
 
 export interface ScanResult {
-  source: 'mock' | 'live'
+  photos: ScanPhoto[]
+  /** Merged across photos with duplicates removed (FR4). */
+  ingredients: (IngredientRef & { id: string; confidence: number; count: number; photos: number[] })[]
+  askAboutStaples: IngredientRef[]
   model: string
-  detections: Detection[]
+  elapsedMs: number
 }
 
-export interface RecipeIngredient {
-  id: string
-  qty: number
-  unit: string
-  optional?: boolean
+export interface ChefQuestion { key: string; text: string; options: string[] }
+
+/** Answers to the chef's questions, keyed by question key, plus a free-text note. */
+export interface ChefAnswers {
+  cuisine?: string
+  mood?: string
+  maxMinutes?: number
+  servings?: number
   note?: string
 }
 
-export interface RecipeStep {
-  text: string
-  uses?: string[]
-  timerMin?: number
+export type RecipeSource = 'spoonacular' | 'llm'
+
+/** Where a recipe option came from: the chef's fridge-based picks, or a recipe search. */
+export type RecipeOrigin = 'fridge' | 'search'
+
+export interface RecipeOption {
+  optionId: string
+  title: string
+  summary: string
+  minutes: number | null
+  uses: string[]
+  missing: string[]
+  imageUrl: string | null
+  source: RecipeSource
 }
 
-export type DishArtKind =
-  | 'omelette' | 'pasta' | 'shakshuka' | 'friedrice' | 'curry-green' | 'curry-orange'
-  | 'toast' | 'stirfry' | 'bowl' | 'pancakes' | 'soup' | 'spaghetti'
+export interface RecipeOptions {
+  options: RecipeOption[]
+  /** Recipes the backend's safety filter blocked for this user's allergies or diet. */
+  removedBySafetyFilter: number
+  notice: string | null
+}
+
+export interface RecipeIngredient { name: string; quantity: number; unit: string; have: boolean }
+
+export interface SafetyCheck { checked: boolean; allergies: Allergen[]; diet: Diet }
 
 export interface Recipe {
-  id: string
+  recipeId: string
+  optionId: string
   title: string
-  blurb: string
-  description: string
-  cuisine: Cuisine
-  moods: Mood[]
-  prepMin: number
-  cookMin: number
-  baseServings: number
-  difficulty: 'Easy' | 'Medium'
-  rating: number
-  art: DishArtKind
-  mat: 'cream' | 'sun' | 'peach' | 'leaf'
-  ingredients: RecipeIngredient[]
-  steps: RecipeStep[]
-}
-
-export interface ChefPrefs {
-  cuisine: CuisinePick
-  mood: Mood
-  /** minutes; 0 = no rush */
-  time: number
+  summary: string
   servings: number
+  minutes: number | null
+  ingredients: RecipeIngredient[]
+  steps: string[]
+  safety: SafetyCheck
+  imageUrl: string | null
+  source: RecipeSource
 }
 
-export interface Recommendation {
-  recipe: Recipe
-  have: RecipeIngredient[]
-  missing: RecipeIngredient[]
-  optionalMissing: RecipeIngredient[]
-  score: number
-  fitsTime: boolean
-  cuisineMatch: boolean
-}
+export interface SavedRecipe extends Recipe { savedAt: number }
 
-export interface RecommendationResult {
-  items: Recommendation[]
-  hidden: { recipe: Recipe; reason: string }[]
-}
-
-export interface Substitute {
-  id: string
-  name: string
-  ratio: string
-  note: string
-}
-
-export type ScenarioId = 'success' | 'empty' | 'allergy' | 'nomatch' | 'server' | 'expired'
+export interface Swap { name: string; note: string }
