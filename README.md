@@ -10,7 +10,8 @@ ICT304 AI System Design, Murdoch University, 2026. Team: Wadiqa Baig, Parth Kota
 |---|---|
 | `detection/` | Assignment work: dataset metadata and the YOLO11s, RF-DETR Small and ensemble Colab notebooks (`instructions.txt` explains how to run them) |
 | `backend/` | FastAPI server: detection, recipe chef, safety filter and database |
-| `app/` | User interface |
+| `Frontend/frigi-app/` | Web app (React and Vite), hosted with AWS Amplify |
+| `app/` | Earlier Expo mobile skeleton |
 | `docs/` | API contract, test results and report material |
 
 Model weights and the full dataset are not stored here because of their size; they are in the team Google Drive folder.

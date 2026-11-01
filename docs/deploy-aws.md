@@ -141,6 +141,8 @@ Once the app uses the HTTPS address, remove the port 8000 rule from the security
 
 ## Step 10. Move the database to RDS PostgreSQL
 
+> **Current status:** RDS was connected and working on 14 Oct 2026, then deleted on 1 Nov 2026 because of cost. The API now uses SQLite in the `frigi-data` Docker volume on the EC2 server. These steps remain as the way back: adding the `DATABASE_URL` line to `~/frigi/.env` switches the API to RDS again. Never run `docker compose down -v`, because it deletes the SQLite accounts.
+
 User accounts move from a SQLite file on the server to a managed PostgreSQL database. RDS keeps automatic backups, and the database survives even if the EC2 server is replaced. Test accounts in the old SQLite file are not copied; create them again afterwards.
 
 ### 10.1 Create the database (AWS console, region us-east-1)
@@ -191,3 +193,18 @@ The health check should show `"database": "postgresql"`. If it shows `"unreachab
 
 - On the free tier, db.t4g.micro with 20 GB is free for 12 months; otherwise it is about US$0.016 per hour.
 - RDS can be stopped (RDS → `frigi-db` → **Actions → Stop temporarily**) for up to 7 days, after which AWS starts it again by itself. Stop it together with the EC2 server when the team is not working.
+
+---
+
+## Step 11. Host the website with Amplify
+
+Amplify Hosting publishes the web app in `Frontend/frigi-app` at an HTTPS address and rebuilds it whenever `main` changes. Only Hosting is used; the FastAPI server stays the backend. The build settings are in `amplify.yml` at the repository root.
+
+1. AWS console (N. Virginia) → search **Amplify** → **Create new app**.
+2. Choose **GitHub** → **Next**, and allow AWS Amplify to access the `wadiqabaig/frigi` repository.
+3. Choose the repository and the `main` branch. Tick **My app is a monorepo** and enter `Frontend/frigi-app` as the path → **Next**.
+4. On **App settings**, check that Amplify found `amplify.yml`, with `dist` as the output folder → **Next**.
+5. **Save and deploy**, then wait until every stage shows a green tick.
+6. Open the `https://main.xxxxx.amplifyapp.com` address it shows, and give that address to the team and the marker.
+
+The EC2 server must be running for the site to work: while it is stopped, the site opens but cannot log in or find recipes.
