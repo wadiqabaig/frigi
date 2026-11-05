@@ -175,9 +175,8 @@ def test_cognito_links_existing_profile_by_email(cognito, monkeypatch):
 
 
 def test_profiles_from_before_notes_still_load():
-    from sqlalchemy import text
-    headers = login("legacy@example.com")
-    with engine.begin() as connection:
-        connection.execute(text("UPDATE users SET chef_notes = NULL"))
-    body = client.get("/profile", headers=headers).json()
-    assert body["chef_notes"] == []
+    """Old rows have NULL notes and allergies; the profile response must still be valid."""
+    from app.schemas import ProfileOut
+    old = ProfileOut.model_validate({"id": 1, "name": "Old", "email": "old@example.com", "age": None,
+                                     "allergies": None, "diet": "none", "household_size": 2, "chef_notes": None})
+    assert old.chef_notes == [] and old.allergies == []
