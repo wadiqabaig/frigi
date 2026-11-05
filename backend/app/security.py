@@ -6,6 +6,7 @@ import bcrypt
 import jwt
 from fastapi import Depends
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from .config import get_settings
@@ -60,20 +61,30 @@ def user_for_cognito(claims: dict, db: Session) -> User:
     """Find the profile for a Cognito account, creating it on the first visit.
 
     An existing profile with the same (verified) email is linked, so people who signed up
-    before Cognito keep their allergies and diet.
+    before Cognito, or re-created their Cognito account, keep their allergies and diet.
+    Two first requests can arrive together; if the other one created the row first, use it.
     """
     sub, email = claims["sub"], claims["email"].lower()
-    user = db.query(User).filter(User.cognito_sub == sub).first()
-    if user is None:
-        user = db.query(User).filter(User.email == email, User.cognito_sub.is_(None)).first()
+    for attempt in range(2):
+        user = db.query(User).filter(User.cognito_sub == sub).first()
+        if user is not None:
+            return user
+        user = db.query(User).filter(User.email == email).first()
         if user is None:
             user = User(name=(claims.get("name") or email.split("@")[0])[:100], email=email, password_hash="",
                         allergies=[], diet="none", household_size=1, chef_notes=[])
             db.add(user)
         user.cognito_sub = sub
-        db.commit()
+        try:
+            db.commit()
+        except IntegrityError:
+            db.rollback()
+            if attempt:
+                raise
+            continue
         db.refresh(user)
-    return user
+        return user
+    raise RuntimeError("unreachable")
 
 
 def current_user(

@@ -180,3 +180,37 @@ def test_profiles_from_before_notes_still_load():
     old = ProfileOut.model_validate({"id": 1, "name": "Old", "email": "old@example.com", "age": None,
                                      "allergies": None, "diet": "none", "household_size": 2, "chef_notes": None})
     assert old.chef_notes == [] and old.allergies == []
+
+
+def test_cognito_relinks_email_after_account_recreated(cognito):
+    first = client.get("/profile", headers=cognito(sub="old-sub", email="same@example.com")).json()
+    client.put("/profile", json={"diet": "halal"}, headers=cognito(sub="old-sub", email="same@example.com"))
+    again = client.get("/profile", headers=cognito(sub="new-sub", email="same@example.com"))
+    assert again.status_code == 200 and again.json()["id"] == first["id"] and again.json()["diet"] == "halal"
+
+
+def test_cognito_first_request_race_uses_existing_row(cognito, monkeypatch):
+    from app.models import User
+    from app.database import SessionLocal
+
+    # Simulate the other request creating the row between our lookup and our insert.
+    db = SessionLocal()
+    calls = {"n": 0}
+    original = db.query
+
+    def query(model, *a, **k):
+        q = original(model, *a, **k)
+        calls["n"] += 1
+        if calls["n"] == 2:
+            other = SessionLocal()
+            other.add(User(name="R", email="race@example.com", password_hash="", allergies=[], diet="none",
+                           household_size=1, chef_notes=[], cognito_sub="race-sub"))
+            other.commit()
+            other.close()
+        return q
+
+    monkeypatch.setattr(db, "query", query)
+    claims = {"sub": "race-sub", "email": "race@example.com", "name": "R"}
+    user = security.user_for_cognito(claims, db)
+    assert user.cognito_sub == "race-sub"
+    db.close()
