@@ -29,10 +29,13 @@ export const toApiError = (e: unknown, fallback: string) =>
 export const errorMessage = (e: unknown, fallback: string) => toApiError(e, fallback).message
 
 let token: string | null = null
+let tokenProvider: (() => Promise<string | null>) | null = null
 let onUnauthorized: (() => void) | null = null
 
 // Sets the bearer token sent with authenticated requests (null after log-out).
 export const setAuthToken = (value: string | null) => { token = value }
+// With Cognito, tokens refresh themselves, so each request asks for the current one.
+export const setAuthTokenProvider = (fn: (() => Promise<string | null>) | null) => { tokenProvider = fn }
 
 // Registers what to do when an authenticated request returns 401 (missing or expired token).
 export const setUnauthorizedHandler = (fn: (() => void) | null) => { onUnauthorized = fn }
@@ -57,7 +60,7 @@ const FALLBACK_MESSAGE: Partial<Record<ApiErrorKind, string>> = {
 }
 
 export interface RequestOptions {
-  method?: 'GET' | 'POST' | 'PUT'
+  method?: 'GET' | 'POST' | 'PUT' | 'DELETE'
   /** JSON body, or FormData for uploads. */
   body?: unknown
   /** Send the bearer token and treat 401 as an expired session. */
@@ -77,7 +80,8 @@ export async function request<T>(path: string, opts: RequestOptions = {}): Promi
   else signal?.addEventListener('abort', forward, { once: true })
 
   const headers: Record<string, string> = { Accept: 'application/json' }
-  if (auth && token) headers.Authorization = `Bearer ${token}`
+  const bearer = auth ? (tokenProvider ? await tokenProvider().catch(() => null) : token) : null
+  if (bearer) headers.Authorization = `Bearer ${bearer}`
   const isForm = body instanceof FormData
   if (body !== undefined && !isForm) headers['Content-Type'] = 'application/json'
 
@@ -98,7 +102,7 @@ export async function request<T>(path: string, opts: RequestOptions = {}): Promi
     signal?.removeEventListener('abort', forward)
   }
 
-  const data = (await res.json().catch(() => null)) as (T & Partial<ErrorBody>) | null
+  const data = (res.status === 204 ? null : await res.json().catch(() => null)) as (T & Partial<ErrorBody>) | null
   if (res.ok) return data as T
 
   const code = data?.error?.code ?? `HTTP_${res.status}`

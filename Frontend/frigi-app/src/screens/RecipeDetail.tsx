@@ -14,12 +14,13 @@ import { cx } from '../lib/format'
 import { onList } from '../lib/recipes'
 import type { Recipe, RecipeIngredient } from '../lib/types'
 import { ALLERGEN_LABEL, DIET_LABEL } from '../lib/vocab'
-import { useApp, useProfile } from '../state/AppState'
+import { useApp, useProfile, usePageRoute } from '../state/AppState'
 import { StateView } from './States'
 
 // Loads the recipe for the current route: live from the chef, or a saved snapshot.
 function useRecipe() {
-  const { route, findOption, saved, chef, inventory, rememberRecipe } = useApp()
+  const { findOption, saved, chef, inventory, rememberRecipe } = useApp()
+  const route = usePageRoute()
   const profile = useProfile()
   const savedId = route.params?.savedId ? String(route.params.savedId) : null
   const optionId = route.params?.optionId ? String(route.params.optionId) : null
@@ -106,6 +107,7 @@ export function RecipeDetail() {
                 <span className="block text-xs font-semibold text-brown-50">
                   {swap ? `Swapped for ${ing.name}` : status === 'have' ? 'In your fridge' : 'Missing · tap for a swap'}
                 </span>
+                {ing.note && !swap && <span className="block text-xs font-semibold text-sun-700">{ing.note}</span>}
               </span>
               <span className="text-right font-display text-base font-semibold tabular-nums text-brown">{qty}</span>
               <span className={cx('grid h-8 w-8 shrink-0 place-items-center rounded-full', status === 'have' && 'bg-leaf-50 text-leaf', status === 'missing' && 'bg-red-50 text-red', status === 'swapped' && 'bg-sun-50 text-sun-700')}>

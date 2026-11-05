@@ -16,7 +16,7 @@ const FLOATERS: { id: GlyphKey; x: string; y: string; s: number; d: number; r: n
 ]
 
 const HOW = [
-  { pose: POSES.upload, title: 'Snap your fridge', body: 'Up to three photos. Frigi spots the food.' },
+  { pose: POSES.upload, title: 'Snap your fridge', body: 'Up to five photos. Frigi spots the food.' },
   { pose: POSES.confirm, title: 'Check the list', body: 'Tick, remove or add anything it missed.' },
   { pose: POSES.recommends, title: 'Cook something good', body: 'Recipes that use what you already have.' },
 ]

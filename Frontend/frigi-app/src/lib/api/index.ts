@@ -7,17 +7,17 @@
  */
 import { isAllergen, isDiet } from '../vocab'
 import type {
-  ChefAnswers, ChefQuestion, IngredientRef, IngredientSearchPage, Profile, Recipe, RecipeOption,
+  ChefAnswers, ChefNote, ChefQuestion, IngredientRef, IngredientSearchPage, Profile, Recipe, RecipeOption,
   RecipeOptions, ScanResult, SignUpInput, Swap, User,
 } from '../types'
 import type {
-  AuthDto, ChefAnswersDto, ChefQuestionsDto, DetectDto, IngredientsDto, OptionsDto, ProfileDto,
+  AuthDto, ChefAnswersDto, ChefQuestionsDto, DetectDto, IngredientsDto, NoteDto, OptionsDto, ProfileDto,
   ProfileUpdateDto, RecipeDto, RecipeOptionDto, SwapDto,
 } from './dto'
 import { ApiError, request } from './http'
 import { paginate, rankIngredients } from './ingredientSearch'
 
-export { ApiError, errorMessage, isAborted, setAuthToken, setUnauthorizedHandler, toApiError } from './http'
+export { ApiError, errorMessage, isAborted, setAuthToken, setAuthTokenProvider, setUnauthorizedHandler, toApiError } from './http'
 
 export interface AuthSession { token: string; user: User }
 
@@ -32,11 +32,15 @@ const toProfile = (p: ProfileDto): Profile => ({
   householdSize: p.household_size,
   diet: isDiet(p.diet) ? p.diet : 'none',
   allergies: p.allergies.filter(isAllergen),
+  chefNotes: (p.chef_notes ?? []).map(toNote),
 })
+
+const toNote = (n: NoteDto): ChefNote => ({ id: n.id, text: n.text, createdAt: n.created_at })
 
 // Converts chef answers to the backend shape, leaving out anything unanswered.
 const toAnswersDto = (a: ChefAnswers): ChefAnswersDto => ({
   cuisine: a.cuisine || undefined,
+  meal_type: a.mealType || undefined,
   mood: a.mood || undefined,
   max_minutes: a.maxMinutes || undefined,
   servings: a.servings || undefined,
@@ -59,6 +63,7 @@ const toOption = (o: RecipeOptionDto): RecipeOption => ({
 const toOptions = (r: OptionsDto): RecipeOptions => ({
   options: r.options.map(toOption),
   removedBySafetyFilter: r.removed_by_safety_filter,
+  removedByYourNotes: r.removed_by_your_notes ?? 0,
   notice: r.notice,
 })
 
@@ -72,6 +77,8 @@ function toScan(r: DetectDto): ScanResult {
       index: p.index,
       width: p.width,
       height: p.height,
+      sharpness: p.sharpness ?? 0,
+      blurry: !!p.blurry,
       detections: p.detections.map((d) => {
         const [x1, y1, x2, y2] = d.box
         const w = p.width || 1, h = p.height || 1
@@ -138,6 +145,21 @@ export const api = {
     return toProfile(await request<ProfileDto>('/profile', { method: 'PUT', body, auth: true }))
   },
 
+  /** Deletes the profile and everything saved with it (the Cognito account is deleted separately). */
+  async deleteProfile(): Promise<void> {
+    await request<null>('/profile', { method: 'DELETE', auth: true })
+  },
+
+  /** Saves a note to change next time, e.g. "less spicy". */
+  async addNote(text: string): Promise<ChefNote> {
+    return toNote(await request<NoteDto>('/profile/notes', { method: 'POST', body: { text }, auth: true }))
+  },
+
+  // Deletes one saved note.
+  async deleteNote(id: string): Promise<void> {
+    await request<null>(`/profile/notes/${encodeURIComponent(id)}`, { method: 'DELETE', auth: true })
+  },
+
   /** Common staples to offer on the confirm screen (FR5). */
   async staples(signal?: AbortSignal): Promise<IngredientRef[]> {
     const c = await loadCatalogue()
@@ -171,7 +193,7 @@ export const api = {
     return top && top.name.toLowerCase() === name.trim().toLowerCase() ? top : { id: null, name: name.trim() }
   },
 
-  /** POST /detect with 1–3 photos (RF-DETR Small on the backend). */
+  /** POST /detect with 1–5 photos (RF-DETR Small on the backend). */
   async detect(files: File[], signal?: AbortSignal): Promise<ScanResult> {
     const form = new FormData()
     files.forEach((f) => form.append('photos', f, f.name))

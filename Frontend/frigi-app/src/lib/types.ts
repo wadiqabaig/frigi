@@ -16,7 +16,11 @@ export interface Profile {
   householdSize: number
   diet: Diet
   allergies: Allergen[]
+  /** Things to change next time, saved after cooking and sent to the chef. */
+  chefNotes: ChefNote[]
 }
+
+export interface ChefNote { id: string; text: string; createdAt: string }
 
 export interface SignUpInput {
   name: string
@@ -55,7 +59,11 @@ export interface Detection {
   box: [number, number, number, number]
 }
 
-export interface ScanPhoto { index: number; width: number; height: number; detections: Detection[] }
+export interface ScanPhoto {
+  index: number; width: number; height: number; detections: Detection[]
+  /** Edge sharpness; `blurry` is true when it is too low to trust the scan. */
+  sharpness: number; blurry: boolean
+}
 
 export interface ScanResult {
   photos: ScanPhoto[]
@@ -71,6 +79,7 @@ export interface ChefQuestion { key: string; text: string; options: string[] }
 /** Answers to the chef's questions, keyed by question key, plus a free-text note. */
 export interface ChefAnswers {
   cuisine?: string
+  mealType?: string
   mood?: string
   maxMinutes?: number
   servings?: number
@@ -97,10 +106,12 @@ export interface RecipeOptions {
   options: RecipeOption[]
   /** Recipes the backend's safety filter blocked for this user's allergies or diet. */
   removedBySafetyFilter: number
+  /** Recipes left out because of the user's saved notes, e.g. "no mushrooms". */
+  removedByYourNotes: number
   notice: string | null
 }
 
-export interface RecipeIngredient { name: string; quantity: number; unit: string; have: boolean }
+export interface RecipeIngredient { name: string; quantity: number; unit: string; have: boolean; note?: string | null }
 
 export interface SafetyCheck { checked: boolean; allergies: Allergen[]; diet: Diet }
 

@@ -130,7 +130,15 @@ export function Chef() {
     setStep(null)
     const idx = questions.findIndex((q) => q.key === key)
     if (idx < questions.length - 1) ask(questions, questions[idx + 1].key)
-    else findRecipes(next, note)
+    else askExtra()
+  }
+
+  // After the last question: anything else for the chef? Yes lets the user type it; No finds recipes.
+  const askExtra = () => say('Anything else the chef should keep in mind?', { pose: 'leaning' }, () => setStep('extra'))
+  const extraAnswer = (yes: boolean) => {
+    push({ from: 'user', text: yes ? 'Yes' : 'No' })
+    if (yes) say('Go ahead and type it below, like “no chilli” or “something the kids will like”.', {}, () => { setStep('extra-text'); setTimeout(() => document.getElementById('chef-input')?.focus(), 50) })
+    else findRecipes(answers, note)
   }
 
   /** Rewind to a previous question. */
@@ -171,25 +179,34 @@ export function Chef() {
     return next
   }
 
-  // Typed text answers the current question if it matches; otherwise it becomes part of the note.
+  // Typed text answers the current question (any words are accepted, numbers for time and people),
+  // answers the "anything else?" step, or becomes a note when the chat is finished.
   const submitText = (e: FormEvent) => {
     e.preventDefault()
     const t = text.trim()
     if (!t || !questions) return
     setText('')
+    if (step === 'extra' && /^(y|yes|yeah|yep|sure)\b/i.test(t)) { extraAnswer(true); return }
+    if (step === 'extra' && /^(n|no|nope|nothing|no thanks)\b/i.test(t)) { extraAnswer(false); return }
+    if (step === 'extra' || step === 'extra-text') {
+      push({ from: 'user', text: t })
+      findRecipes(answers, addNote(t))
+      return
+    }
     const q = step && step !== 'done' ? questions.find((x) => x.key === step) : undefined
     if (q) {
       const v = parseAnswer(q, t)
       if (v !== null) { answer(q.key, v); return }
       push({ from: 'user', text: t })
-      addNote(t)
+      say(q.key === 'servings' ? 'Please type a number of people between 1 and 20, like “4”.' : 'Please type a time between 5 minutes and 4 hours, like “30 minutes”.')
       return
     }
     push({ from: 'user', text: t })
     addNote(t)
   }
 
-  const qIndex = step && step !== 'done' && questions ? questions.findIndex((q) => q.key === step) + 1 : Object.keys(answers).length
+  const lastStep = step === 'extra' || step === 'extra-text'
+  const qIndex = step && step !== 'done' && !lastStep && questions ? questions.findIndex((q) => q.key === step) + 1 : Object.keys(answers).length
   const total = questions?.length ?? 4
   const current = questions?.find((q) => q.key === step)
   const top = result?.options ?? []
@@ -213,7 +230,7 @@ export function Chef() {
         <aside className="relative hidden flex-col items-center overflow-hidden rounded-5xl bg-sun p-6 lg:flex">
           <div aria-hidden className="absolute -top-20 left-1/2 h-72 w-72 -translate-x-1/2 rounded-full bg-white/25" />
           <p className="relative text-xs font-extrabold uppercase tracking-[0.14em] text-brown/70">Chef Frigi</p>
-          <p className="relative mt-1 font-display text-2xl font-semibold text-brown">{step === 'done' && top.length ? 'Dinner is sorted!' : busy ? 'Finding recipes…' : `Question ${Math.max(1, qIndex)} of ${total}`}</p>
+          <p className="relative mt-1 font-display text-2xl font-semibold text-brown">{step === 'done' && top.length ? 'Dinner is sorted!' : busy ? 'Finding recipes…' : lastStep ? 'Last question' : `Question ${Math.max(1, qIndex)} of ${total}`}</p>
           <div className="relative mt-3 flex gap-1.5" aria-hidden>
             {(questions ?? []).map((q, i) => <span key={q.key} className={cx('h-2 rounded-full transition-all', answers[q.key] !== undefined ? 'w-6 bg-red' : i + 1 === qIndex ? 'w-6 bg-white' : 'w-2 bg-white/60')} />)}
           </div>
@@ -238,7 +255,7 @@ export function Chef() {
             </motion.div>
             <div>
               <p className="font-display text-lg font-semibold leading-tight text-brown">Chef Frigi</p>
-              <p className="text-xs font-bold text-leaf">{busy ? 'finding recipes…' : typing ? 'typing…' : step === 'done' ? (top.length ? 'Recipes ready' : 'Ready') : `Question ${Math.max(1, qIndex)} of ${total}`}</p>
+              <p className="text-xs font-bold text-leaf">{busy ? 'finding recipes…' : typing ? 'typing…' : step === 'done' ? (top.length ? 'Recipes ready' : 'Ready') : lastStep ? 'Last question' : `Question ${Math.max(1, qIndex)} of ${total}`}</p>
             </div>
           </div>
 
@@ -264,11 +281,12 @@ export function Chef() {
                     <p className={cx('rounded-3xl rounded-bl-md px-4 py-3 text-[15px] leading-relaxed shadow-soft', m.kind === 'error' ? 'bg-red-50 text-red-600' : 'bg-white text-brown')}>{m.text}</p>
                     {m.kind === 'results' && m.id === lastResultsId && result && (
                       <>
-                        {(result.removedBySafetyFilter > 0 || result.notice) && (
+                        {(result.removedBySafetyFilter > 0 || result.removedByYourNotes > 0 || result.notice) && (
                           <p className="mt-2 flex items-start gap-1.5 rounded-2xl bg-sun-50 px-3 py-2 text-xs font-semibold text-brown">
                             <ShieldCheck size={14} className="mt-0.5 shrink-0 text-sun-700" />
                             <span>
                               {result.removedBySafetyFilter > 0 && `I left out ${result.removedBySafetyFilter} recipe${result.removedBySafetyFilter > 1 ? 's' : ''} that didn’t fit your allergies or diet. `}
+                              {result.removedByYourNotes > 0 && `I skipped ${result.removedByYourNotes} because of your saved notes. `}
                               {result.notice}
                             </span>
                           </p>
@@ -337,6 +355,13 @@ export function Chef() {
               )}
             </AnimatePresence>
 
+            {step === 'extra' && !typing && (
+              <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="flex flex-wrap justify-end gap-2 pl-10 pt-1" role="group" aria-label="Anything else the chef should keep in mind?">
+                <Chip onClick={() => extraAnswer(true)} selected={false}>Yes</Chip>
+                <Chip onClick={() => extraAnswer(false)} selected={false}>No, show me recipes</Chip>
+              </motion.div>
+            )}
+
             {step === 'done' && !busy && (
               <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="flex flex-wrap justify-end gap-2 pt-2">
                 {top.length ? <Button onClick={() => go('recipes')} iconRight={<ArrowRight size={18} />}>See all recipes</Button> : null}
@@ -350,7 +375,7 @@ export function Chef() {
 
           <form onSubmit={submitText} className="flex items-center gap-2 border-t border-cream p-3">
             <label htmlFor="chef-input" className="sr-only">Message Chef Frigi</label>
-            <input id="chef-input" value={text} onChange={(e) => setText(e.target.value)} disabled={!questions || busy} placeholder={current ? 'Type an answer, or a note like “nothing too spicy”' : 'Add a note for the chef…'} maxLength={200} className="h-12 min-w-0 flex-1 rounded-full bg-cream-50 px-5 text-[15px] text-brown placeholder:text-brown-50 focus:outline-none focus:ring-2 focus:ring-red disabled:opacity-60" />
+            <input id="chef-input" value={text} onChange={(e) => setText(e.target.value)} disabled={!questions || busy} placeholder={step === 'extra-text' ? 'Type what the chef should know…' : step === 'extra' ? 'Type yes or no…' : current ? 'Tap an option or type your own answer' : 'Add a note for the chef…'} maxLength={200} className="h-12 min-w-0 flex-1 rounded-full bg-cream-50 px-5 text-[15px] text-brown placeholder:text-brown-50 focus:outline-none focus:ring-2 focus:ring-red disabled:opacity-60" />
             <motion.button whileTap={{ scale: 0.9 }} type="submit" aria-label="Send" disabled={!text.trim() || busy} className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-red text-white shadow-red disabled:opacity-40"><Send size={18} /></motion.button>
           </form>
           <p className="flex items-center justify-center gap-1 px-4 pb-3 text-center text-[11px] font-semibold text-brown-50"><Info size={11} /> Recipes from Spoonacular, picked with Gemini, and checked against your allergies and diet.</p>

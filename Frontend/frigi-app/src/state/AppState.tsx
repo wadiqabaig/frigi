@@ -1,12 +1,14 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { api, setAuthToken, setUnauthorizedHandler, type AuthSession } from '../lib/api'
+import { api, setAuthToken, setAuthTokenProvider, setUnauthorizedHandler, type AuthSession } from '../lib/api'
+import { deleteAccount as deleteCognitoAccount, idToken, logOut } from '../lib/auth'
+import { USE_COGNITO } from '../lib/config'
 import { load, remove, removeLegacyDemoData, save, userKey } from '../lib/storage'
 import type {
   ChefAnswers, IngredientRef, InventoryItem, Profile, Recipe, RecipeOption, RecipeOptions, RecipeOrigin, SavedRecipe, ScanResult, User,
 } from '../lib/types'
 
 export type ScreenName =
-  | 'welcome' | 'signup' | 'login' | 'home' | 'upload' | 'scanning' | 'ingredients' | 'chef'
+  | 'welcome' | 'signup' | 'login' | 'forgot' | 'home' | 'upload' | 'scanning' | 'ingredients' | 'chef'
   | 'recipes' | 'recipe' | 'cook' | 'done' | 'saved' | 'profile' | 'state'
 
 export type StateKind =
@@ -21,10 +23,13 @@ export interface ChefSession { answers: ChefAnswers; ingredients: IngredientRef[
 /** The last recipe search and its results. */
 export interface SearchSession { term: string; result: RecipeOptions; createdAt: number }
 
-const PUBLIC: ScreenName[] = ['welcome', 'signup', 'login', 'state']
+const PUBLIC: ScreenName[] = ['welcome', 'signup', 'login', 'forgot', 'state']
 const OPTION_TTL_MS = 2 * 60 * 60 * 1000 - 60_000
 
 interface StoredAuth { token: string; user: User }
+
+// With Cognito, every request asks Amplify for a fresh ID token.
+if (USE_COGNITO) setAuthTokenProvider(idToken)
 
 interface Ctx {
   route: Route
@@ -37,8 +42,10 @@ interface Ctx {
   user: User | null
   profile: Profile | null
   setProfile: (p: Profile) => void
-  startSession: (s: AuthSession) => Promise<void>
+  /** Starts a session after log-in. With Cognito there is no AuthSession: its token is read per request. */
+  startSession: (s?: AuthSession, prefs?: Partial<Omit<Profile, 'id' | 'email' | 'chefNotes'>>) => Promise<void>
   signOut: () => void
+  deleteAccount: () => Promise<void>
   photos: Photo[]
   setPhotos: (p: Photo[]) => void
   scan: ScanResult | null
@@ -111,6 +118,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [initial] = useState(() => {
     removeLegacyDemoData()
     const stored = load<StoredAuth | null>('auth', null)
+    // Cognito keeps its own session; the backend answers 401 if it has ended.
+    if (stored && USE_COGNITO) return { auth: stored, expired: false }
     if (stored && !tokenExpired(stored.token)) { setAuthToken(stored.token); return { auth: stored, expired: false } }
     if (stored) remove('auth')
     return { auth: null, expired: !!stored }
@@ -196,11 +205,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [])
 
   // Stores a new session after sign-up or log-in, once its profile has loaded.
-  const startSession = useCallback(async (s: AuthSession) => {
-    setAuthToken(s.token)
+  const startSession = useCallback(async (s?: AuthSession, prefs?: Partial<Omit<Profile, 'id' | 'email' | 'chefNotes'>>) => {
+    if (s) setAuthToken(s.token)
     let p: Profile
-    try { p = await api.getProfile() } catch (e) { setAuthToken(null); throw e }
-    const stored = { token: s.token, user: s.user }
+    try {
+      p = await api.getProfile()
+      // Allergies, diet and household from the sign-up form, saved once the account exists.
+      if (prefs && Object.keys(prefs).length) p = await api.updateProfile(prefs)
+    } catch (e) { setAuthToken(null); throw e }
+    const stored = { token: s?.token ?? '', user: s?.user ?? { id: p.id, name: p.name, email: p.email } }
     save('auth', stored)
     setAuth(stored)
     setProfile(p)
@@ -213,6 +226,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (auth) {
       remove(userKey('chef', auth.user.id), 'session')
       remove(userKey('recipes', auth.user.id), 'session')
+    }
+    clearSession()
+    if (USE_COGNITO) void logOut()
+    setStack([{ name: 'welcome' }])
+  }, [auth, clearSession])
+
+  // Deletes the profile on the backend, then the Cognito account, then this device's copies.
+  const deleteAccount = useCallback(async () => {
+    await api.deleteProfile()
+    if (USE_COGNITO) await deleteCognitoAccount()
+    if (auth) {
+      for (const k of ['inventory', 'saved']) remove(userKey(k, auth.user.id))
+      for (const k of ['chef', 'recipes']) remove(userKey(k, auth.user.id), 'session')
     }
     clearSession()
     setStack([{ name: 'welcome' }])
@@ -250,13 +276,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const value = useMemo<Ctx>(() => ({
     route, go, back, replace, canGoBack: stack.length > 1,
     boot, retryBoot: () => setBootTry((n) => n + 1),
-    user: auth?.user ?? null, profile, setProfile, startSession, signOut,
+    user: auth?.user ?? null, profile, setProfile, startSession, signOut, deleteAccount,
     photos, setPhotos, scan, setScan,
     inventory, setInventory,
     chef, setChef, search, setSearch, findOption,
     recipes, rememberRecipe, saved, isSaved, toggleSaved, subs, setSub,
     toast, notify,
-  }), [route, go, back, replace, stack.length, boot, auth, profile, startSession, signOut, photos, scan, inventory, setInventory, chef, setChef, search, findOption, recipes, rememberRecipe, saved, isSaved, toggleSaved, subs, setSub, toast, notify])
+  }), [route, go, back, replace, stack.length, boot, auth, profile, startSession, signOut, deleteAccount, photos, scan, inventory, setInventory, chef, setChef, search, findOption, recipes, rememberRecipe, saved, isSaved, toggleSaved, subs, setSub, toast, notify])
 
   return <AppCtx.Provider value={value}>{children}</AppCtx.Provider>
 }
@@ -266,6 +292,18 @@ export function useApp() {
   const c = useContext(AppCtx)
   if (!c) throw new Error('useApp outside provider')
   return c
+}
+
+/**
+ * The route a page was opened with. While a page animates out, the app's current route has
+ * already changed; reading this instead keeps the leaving page unchanged so the transition
+ * can finish (otherwise it re-renders as "recipe expired" and the next page never appears).
+ */
+export const PageRouteContext = createContext<Route | null>(null)
+export function usePageRoute(): Route {
+  const page = useContext(PageRouteContext)
+  const { route } = useApp()
+  return page ?? route
 }
 
 /** The signed-in user's profile. Only call from screens behind the login guard. */
