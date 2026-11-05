@@ -5,6 +5,9 @@ applications:
       variables:
         # Public backend address, compiled into the site. API keys never go here.
         VITE_API_BASE_URL: https://frigi-app.duckdns.org
+        # Amazon Cognito user pool and app client (public IDs, not secrets).
+        VITE_COGNITO_USER_POOL_ID: us-east-1_cy2pFJh4L
+        VITE_COGNITO_CLIENT_ID: 427fnn1f7gbrig6ltsn8clvc4
     frontend:
       phases:
         preBuild:
