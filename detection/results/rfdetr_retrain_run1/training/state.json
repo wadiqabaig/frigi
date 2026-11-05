@@ -1,0 +1,13 @@
+{
+  "status": "finished",
+  "stage": "full-training",
+  "stop_reason": "early stopping",
+  "optimizer_updates": 8466,
+  "epoch_counter_including_partial": 34,
+  "cuda_parameter_device": "cuda:0",
+  "checkpoint": "/content/drive/MyDrive/ICT304/Group Assignment Submission/Code/retraining_runs/training_runs/rfdetr/20261104T152521Z_4d67d2/native/checkpoint_best_total.pth",
+  "latest_resume": "/content/drive/MyDrive/ICT304/Group Assignment Submission/Code/retraining_runs/training_runs/rfdetr/20261104T152521Z_4d67d2/native/latest_resume.ckpt",
+  "precision": "16-mixed",
+  "elapsed_seconds": 2814.869894719,
+  "worker_exit_code": 0
+}

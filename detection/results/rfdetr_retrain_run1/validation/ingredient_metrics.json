@@ -1,0 +1,11 @@
+{
+  "confidence": 0.3,
+  "precision": 0.9840546697038725,
+  "recall": 0.9795918367346939,
+  "F1": 0.9818181818181818,
+  "true_positive_ingredients": 1296,
+  "false_positive_ingredients": 21,
+  "missed_ingredients": 27,
+  "correct_empty_lists": 15,
+  "images": 174
+}
