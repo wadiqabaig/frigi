@@ -31,6 +31,16 @@ class AuthOut(BaseModel):
     user: UserBrief
 
 
+class Note(BaseModel):
+    id: str
+    text: str
+    created_at: str
+
+
+class NoteIn(BaseModel):
+    text: str = Field(min_length=1, max_length=300)
+
+
 class ProfileOut(BaseModel):
     id: int
     name: str
@@ -39,6 +49,7 @@ class ProfileOut(BaseModel):
     allergies: list[str]
     diet: str
     household_size: int
+    chef_notes: list[Note] = []
 
 
 class ProfileUpdate(BaseModel):
@@ -68,6 +79,9 @@ class PhotoResult(BaseModel):
     width: int
     height: int
     detections: list[Detection]
+    # Edge-sharpness score; below the threshold the app asks the user to retake the photo.
+    sharpness: float
+    blurry: bool
 
 
 class MergedIngredient(BaseModel):
@@ -88,6 +102,7 @@ class DetectOut(BaseModel):
 
 class ChefAnswers(BaseModel):
     cuisine: str | None = Field(default=None, max_length=50)
+    meal_type: str | None = Field(default=None, max_length=50)
     mood: str | None = Field(default=None, max_length=50)
     max_minutes: int | None = Field(default=None, ge=5, le=240)
     servings: int | None = Field(default=None, ge=1, le=20)
@@ -113,6 +128,7 @@ class RecipeOption(BaseModel):
 class OptionsOut(BaseModel):
     options: list[RecipeOption]
     removed_by_safety_filter: int
+    removed_by_your_notes: int = 0
     notice: str | None
 
 
@@ -126,6 +142,7 @@ class RecipeIngredientOut(BaseModel):
     quantity: float
     unit: str
     have: bool
+    note: str | None = None
 
 
 class SafetyOut(BaseModel):

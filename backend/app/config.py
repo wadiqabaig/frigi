@@ -23,6 +23,11 @@ class Settings(BaseSettings):
     # "hybrid": Spoonacular recipes picked by Gemini. "llm": Gemini writes recipes (comparison tests).
     chef_source: str = "hybrid"
 
+    # Amazon Cognito user pool. When set, log-in uses Cognito and /auth/* is turned off.
+    cognito_region: str = "us-east-1"
+    cognito_user_pool_id: str = ""
+    cognito_client_id: str = ""
+
 
 @lru_cache
 def get_settings() -> Settings:

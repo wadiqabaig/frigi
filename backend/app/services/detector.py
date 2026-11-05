@@ -3,6 +3,8 @@
 import io
 import time
 
+import numpy as np
+
 from PIL import Image, ImageOps
 from pillow_heif import register_heif_opener
 
@@ -13,13 +15,17 @@ from ..vocab import CLASS_NAMES, DISPLAY_NAMES, STAPLES
 register_heif_opener()
 
 ALLOWED_FORMATS = {"JPEG", "PNG", "HEIF"}
-MAX_BYTES = 10 * 1024 * 1024
+MAX_BYTES = 15 * 1024 * 1024
+MAX_PHOTOS = 5
+# Edge-sharpness below this looks blurry. Calibrated on three iPhone fridge photos: sharp
+# photos scored about 440-750 and visibly blurred copies about 10-14. A heuristic, not a guarantee.
+BLUR_THRESHOLD = 25.0
 
 
 def open_photo(data: bytes) -> Image.Image:
     """Validate an upload and return an upright RGB image (FR2)."""
     if len(data) > MAX_BYTES:
-        raise ApiError(400, "PHOTO_TOO_LARGE", "Each photo must be 10 MB or smaller.")
+        raise ApiError(400, "PHOTO_TOO_LARGE", "Each photo must be 15 MB or smaller.")
     try:
         image = Image.open(io.BytesIO(data))
         image.load()
@@ -29,6 +35,15 @@ def open_photo(data: bytes) -> Image.Image:
         raise ApiError(400, "UNSUPPORTED_PHOTO", "Please upload JPG, PNG or HEIC photos.")
     # Phone photos store rotation in EXIF; apply it so boxes match what the user sees.
     return ImageOps.exif_transpose(image).convert("RGB")
+
+
+def sharpness(image: Image.Image) -> float:
+    """Variance of the Laplacian on a 640 px greyscale copy: low values mean few sharp edges."""
+    grey = image.convert("L")
+    grey.thumbnail((640, 640))
+    a = np.asarray(grey, dtype=np.float32)
+    laplacian = a[1:-1, 1:-1] * -4 + a[:-2, 1:-1] + a[2:, 1:-1] + a[1:-1, :-2] + a[1:-1, 2:]
+    return float(laplacian.var())
 
 
 class MockDetector:
@@ -114,8 +129,8 @@ def merge(photo_results: list[dict]) -> list[dict]:
 
 
 def detect(photos: list[bytes]) -> dict:
-    if not 1 <= len(photos) <= 3:
-        raise ApiError(400, "TOO_MANY_PHOTOS", "Please upload between 1 and 3 photos.")
+    if not 1 <= len(photos) <= MAX_PHOTOS:
+        raise ApiError(400, "TOO_MANY_PHOTOS", f"Please upload between 1 and {MAX_PHOTOS} photos.")
     images = [open_photo(data) for data in photos]
     detector = get_detector()
     start = time.perf_counter()
@@ -126,7 +141,9 @@ def detect(photos: list[bytes]) -> dict:
              "box": [round(v, 1) for v in det["box"]]}
             for det in detector.predict(image)
         ]
-        photo_results.append({"index": index, "width": image.width, "height": image.height, "detections": detections})
+        score = round(sharpness(image), 1)
+        photo_results.append({"index": index, "width": image.width, "height": image.height, "detections": detections,
+                              "sharpness": score, "blurry": score < BLUR_THRESHOLD})
     elapsed_ms = int((time.perf_counter() - start) * 1000)
 
     ingredients = merge(photo_results)
