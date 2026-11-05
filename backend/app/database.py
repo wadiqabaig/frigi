@@ -27,6 +27,9 @@ def upgrade_schema() -> None:
                 connection.execute(text(f"ALTER TABLE users ADD COLUMN {name} {kind}"))
         if "cognito_sub" not in columns:
             connection.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS ix_users_cognito_sub ON users (cognito_sub)"))
+        # Rows created before chef notes existed have NULL; the profile response needs a list.
+        connection.execute(text("UPDATE users SET chef_notes = '[]' WHERE chef_notes IS NULL"))
+        connection.execute(text("UPDATE users SET allergies = '[]' WHERE allergies IS NULL"))
 
 
 def get_db():

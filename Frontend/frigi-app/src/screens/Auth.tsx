@@ -3,7 +3,7 @@ import { ArrowLeft, Eye, EyeOff, Loader2 } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { AllergyPicker, DietPicker, Field, Stepper, inputCls } from '../components/Pickers'
 import { Button, IconButton, Logo, Mascot } from '../components/ui'
-import { api, errorMessage } from '../lib/api'
+import { ApiError, api, errorMessage } from '../lib/api'
 import { PASSWORD_HINT, authMessage, confirmCode, finishPasswordReset, logIn, passwordOk, resendCode, startPasswordReset, startSignUp } from '../lib/auth'
 import { USE_COGNITO } from '../lib/config'
 import { load, remove, save } from '../lib/storage'
@@ -40,7 +40,9 @@ function AuthLayout({ pose, title, sub, children }: { pose: Pose; title: string;
 }
 
 // Message to show when sign-up, log-in or a code step fails.
-const messageFor = (e: unknown) => (USE_COGNITO ? authMessage(e) : errorMessage(e, 'Something went wrong. Please try again.'))
+const messageFor = (e: unknown) => (USE_COGNITO && !(e instanceof ApiError) ? authMessage(e) : errorMessage(e, 'Something went wrong. Please try again.'))
+// Cognito says this when the code was already used, e.g. after a retry. Logging in then works.
+const alreadyConfirmed = (e: unknown) => /already confirmed|current status is confirmed/i.test((e as Error)?.message ?? '')
 
 type Prefs = { name: string; age: number | null; allergies: Allergen[]; diet: Diet; householdSize: number }
 // Sign-up preferences wait here until the emailed code is confirmed and the first log-in happens.
@@ -116,7 +118,7 @@ export function SignUp() {
   const confirm = async (code: string) => {
     setBusy(true); setFormErr('')
     try {
-      await confirmCode(f.email.trim(), code)
+      try { await confirmCode(f.email.trim(), code) } catch (err) { if (!alreadyConfirmed(err)) throw err }
       await logIn(f.email.trim(), f.password)
       await startSession(undefined, prefs())
       remove(pendingKey(f.email), 'local')
@@ -206,7 +208,7 @@ export function Login() {
   const confirm = async (code: string) => {
     setBusy(true); setErr('')
     try {
-      await confirmCode(email.trim(), code)
+      try { await confirmCode(email.trim(), code) } catch (err) { if (!alreadyConfirmed(err)) throw err }
       await logIn(email.trim(), password)
       await finish()
     } catch (e2) { setErr(messageFor(e2)) } finally { setBusy(false) }

@@ -1,6 +1,6 @@
 """Request and response shapes. Field names match docs/api-contract.md."""
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, field_validator
 
 from .vocab import Allergy, Diet
 
@@ -50,6 +50,11 @@ class ProfileOut(BaseModel):
     diet: str
     household_size: int
     chef_notes: list[Note] = []
+
+    @field_validator("allergies", "chef_notes", mode="before")
+    @classmethod
+    def _none_is_empty(cls, value):
+        return value or []
 
 
 class ProfileUpdate(BaseModel):

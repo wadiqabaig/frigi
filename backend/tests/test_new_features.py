@@ -163,7 +163,7 @@ def test_cognito_rejects_bad_tokens(cognito):
     assert client.get("/profile", headers=cognito(email_verified=False)).status_code == 401
     assert client.get("/profile", headers=cognito(aud="someone-else")).status_code == 401
     assert client.get("/profile", headers=cognito(token_use="access")).status_code == 401
-    assert client.get("/profile", headers=cognito(exp=int(time.time()) - 10)).status_code == 401
+    assert client.get("/profile", headers=cognito(exp=int(time.time()) - 120)).status_code == 401
 
 
 def test_cognito_links_existing_profile_by_email(cognito, monkeypatch):
@@ -172,3 +172,11 @@ def test_cognito_links_existing_profile_by_email(cognito, monkeypatch):
     client.put("/profile", json={"allergies": ["peanut"]}, headers=old)
     monkeypatch.setattr(get_settings(), "cognito_user_pool_id", "us-east-1_TEST")
     assert client.get("/profile", headers=cognito(sub="xyz", email="old@example.com")).json()["allergies"] == ["peanut"]
+
+
+def test_profiles_from_before_notes_still_load():
+    """Old rows have NULL notes and allergies; the profile response must still be valid."""
+    from app.schemas import ProfileOut
+    old = ProfileOut.model_validate({"id": 1, "name": "Old", "email": "old@example.com", "age": None,
+                                     "allergies": None, "diet": "none", "household_size": 2, "chef_notes": None})
+    assert old.chef_notes == [] and old.allergies == []

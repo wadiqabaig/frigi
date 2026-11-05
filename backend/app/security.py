@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta, timezone
+import logging
 from functools import lru_cache
 
 import bcrypt
@@ -13,6 +14,7 @@ from .errors import ApiError
 from .models import User
 
 bearer = HTTPBearer(auto_error=False)
+log = logging.getLogger("uvicorn.error")
 
 
 def hash_password(password: str) -> str:
@@ -45,7 +47,8 @@ def verify_cognito_token(token: str) -> dict:
     s = get_settings()
     issuer = f"https://cognito-idp.{s.cognito_region}.amazonaws.com/{s.cognito_user_pool_id}"
     key = _cognito_keys().get_signing_key_from_jwt(token).key
-    claims = jwt.decode(token, key, algorithms=["RS256"], audience=s.cognito_client_id, issuer=issuer)
+    # 30 s leeway allows for small clock differences between Cognito and this server.
+    claims = jwt.decode(token, key, algorithms=["RS256"], audience=s.cognito_client_id, issuer=issuer, leeway=30)
     if claims.get("token_use") != "id":
         raise jwt.InvalidTokenError("Not an ID token.")
     if claims.get("email_verified") not in (True, "true"):
@@ -84,7 +87,8 @@ def current_user(
     if cognito_enabled():
         try:
             return user_for_cognito(verify_cognito_token(credentials.credentials), db)
-        except (jwt.PyJWTError, KeyError):
+        except (jwt.PyJWTError, KeyError) as exc:
+            log.warning("Cognito token rejected: %s: %s", type(exc).__name__, exc)
             raise expired
     try:
         payload = jwt.decode(credentials.credentials, get_settings().secret_key, algorithms=["HS256"])
