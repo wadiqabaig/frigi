@@ -2,8 +2,8 @@
 # then forwards HTTPS requests to the API container.
 {$FRIGI_DOMAIN} {
 	request_body {
-		# Up to 3 photos of 10 MB each
-		max_size 35MB
+		# Up to 5 photos of 15 MB each
+		max_size 80MB
 	}
 	reverse_proxy api:8000
 }

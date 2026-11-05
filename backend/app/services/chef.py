@@ -25,6 +25,21 @@ SEARCH_NAMES = {"butter_or_spread": "butter", "leafy_greens": "lettuce", "green_
 NOT_FOR_COOKING = {"water_bottle", "fizzy_drink", "juice"}
 PANTRY = {"salt", "pepper", "black pepper", "water", "oil", "olive oil", "vegetable oil", "cooking oil"}
 
+# Salt is often listed "to taste" with no amount. Savoury dishes then get a suggested
+# amount of 1/4 tsp per serving (a common home-cooking guide), shown as a suggestion.
+SALT_TSP_PER_SERVING = 0.25
+SALT = re.compile(r"\bsalt\b")
+NOT_SALT = re.compile(r"low[- ]salt|salt[- ]free|no[- ]salt|reduced[- ]salt")
+NO_AMOUNT_UNITS = {"", "serving", "servings", "to taste"}
+SWEET_MEAL_TYPES = {"dessert", "drink"}
+
+# Phrases in the user's notes that mean "leave this out", e.g. "no mushrooms next time".
+DISLIKE = re.compile(r"\b(?:no|without|don'?t like|do not like|hate|avoid|skip|less|not a fan of)\s+([a-z][a-z' -]{1,40})")
+FILLER = re.compile(r"\b(?:please|next time|again|in it|in the recipe|at all|thanks)\b")
+# Words that end the food name: "no parsley because my kid hates it" -> "parsley".
+STOP_WORDS = {"because", "since", "as", "it", "in", "on", "for", "with", "when", "next", "this", "that", "please",
+              "again", "anymore", "thanks", "so", "but", "too", "is", "was", "the", "my"}
+
 
 def _new_id(prefix: str) -> str:
     return f"{prefix}_{secrets.token_hex(3)}"
@@ -63,6 +78,53 @@ def nice_quantity(value: float) -> float:
     return round(value * 4) / 4 or 0.25
 
 
+def note_texts(user: User) -> list[str]:
+    return [n["text"] for n in (user.chef_notes or [])][-10:]
+
+
+def disliked_terms(notes: list[str]) -> list[str]:
+    """Foods the user's notes ask to leave out. "less spicy" is passed to Gemini but not blocked."""
+    terms = []
+    for note in notes:
+        text = re.sub(r"\(.*?\)", " ", note.lower())  # drop "(after Easy Tabouleh)"
+        for match in DISLIKE.finditer(text):
+            if text[match.start():].startswith("less"):
+                continue
+            for part in re.split(r",| and | or | & ", FILLER.sub(" ", match.group(1))):
+                words = []
+                for word in part.replace(".", " ").replace("!", " ").split():
+                    if word in STOP_WORDS:
+                        break
+                    words.append(word)
+                food = " ".join(words[:3]).strip(" -'")
+                if len(food) > 2:
+                    terms.append(food)
+    return terms
+
+
+def mentions(texts: list[str], terms: list[str]) -> bool:
+    words = [_singular(t) for t in terms]
+    return any(re.search(rf"\b{re.escape(w)}", _singular(text)) for text in texts for w in words)
+
+
+def with_salt(ingredients: list[dict], servings: int, meal_type: str | None) -> list[dict]:
+    """Give salt an amount when the recipe has none, scaled to servings."""
+    if (spoonacular.spoonacular_meal_type(meal_type) or "") in SWEET_MEAL_TYPES:
+        return ingredients
+    amount = max(0.25, round(servings * SALT_TSP_PER_SERVING * 4) / 4)
+    suggested = {"name": "salt", "quantity": amount, "unit": "tsp", "have": True,
+                 "note": f"Suggested amount for {servings} serving{'s' if servings != 1 else ''}; adjust to taste."}
+    out, found = [], False
+    for item in ingredients:
+        name = item["name"].lower()
+        if SALT.search(name) and not NOT_SALT.search(name):
+            found = True
+            if not item["quantity"] or item["unit"].strip().lower() in NO_AMOUNT_UNITS:
+                item = {**suggested, "name": item["name"]}
+        out.append(item)
+    return out if found else out + [suggested]
+
+
 def _search_terms(ingredients: list[dict]) -> list[str]:
     terms = []
     for item in ingredients:
@@ -78,23 +140,30 @@ def options(user: User, ingredients: list[dict], answers: dict) -> dict:
     confirmed = [i["name"] for i in ingredients]
     terms = _search_terms(ingredients) or [c.lower() for c in confirmed]
     use_spoonacular = get_settings().chef_source != "llm"
+    notes = note_texts(user)
+    dislikes = disliked_terms(notes)
 
     chosen: list[dict] = []
     removed = 0
+    removed_by_notes = 0
     notice = None
 
     if use_spoonacular:
         try:
-            candidates = spoonacular.search(terms, allergies, diet, answers.get("cuisine"), answers.get("max_minutes"))
+            candidates = spoonacular.search(terms, allergies, diet, answers.get("cuisine"), answers.get("max_minutes"),
+                                            meal_type=answers.get("meal_type"))
             safe = []
             for c in candidates:
-                if safety.is_safe([c["title"], *c["ingredient_names"]], allergies, diet):
-                    safe.append(c)
-                else:
+                texts = [c["title"], *c["ingredient_names"]]
+                if not safety.is_safe(texts, allergies, diet):
                     removed += 1
+                elif dislikes and mentions(texts, dislikes):
+                    removed_by_notes += 1
+                else:
+                    safe.append(c)
             if safe:
                 try:
-                    picks = llm.pick_options(safe, answers, allergies, diet)
+                    picks = llm.pick_options(safe, answers, allergies, diet, notes=notes)
                 except LLMUnavailable:
                     picks = [llm.Pick(index=i, summary="") for i in range(min(3, len(safe)))]
                 for p in picks:
@@ -107,7 +176,7 @@ def options(user: User, ingredients: list[dict], answers: dict) -> dict:
 
     if len(chosen) < 3:
         try:
-            generated = llm.generate_options(confirmed, answers, allergies, diet, count=3 - len(chosen) + 1)
+            generated = llm.generate_options(confirmed, answers, allergies, diet, count=3 - len(chosen) + 1, notes=notes)
         except LLMUnavailable:
             generated = []
             if not chosen:
@@ -118,6 +187,9 @@ def options(user: User, ingredients: list[dict], answers: dict) -> dict:
             names = [i.name for i in r.ingredients]
             if not safety.is_safe([r.title, *names], allergies, diet):
                 removed += 1
+                continue
+            if dislikes and mentions([r.title, *names], dislikes):
+                removed_by_notes += 1
                 continue
             chosen.append({"kind": "llm", "title": r.title, "summary": r.summary, "minutes": r.minutes,
                            "uses": [n for n in names if have_it(n, confirmed)],
@@ -132,12 +204,13 @@ def options(user: User, ingredients: list[dict], answers: dict) -> dict:
     result = []
     for option in chosen:
         option_id = _new_id("opt")
-        _options[option_id] = {**option, "user_id": user.id, "confirmed": confirmed, "created": time.time()}
+        _options[option_id] = {**option, "user_id": user.id, "confirmed": confirmed,
+                               "meal_type": answers.get("meal_type"), "created": time.time()}
         result.append({"option_id": option_id, "title": option["title"], "summary": option["summary"],
                        "minutes": option["minutes"], "uses": option["uses"], "missing": option["missing"],
                        "image_url": option["image_url"],
                        "source": "spoonacular" if option["kind"] == "spoonacular" else "llm"})
-    return {"options": result, "removed_by_safety_filter": removed, "notice": notice}
+    return {"options": result, "removed_by_safety_filter": removed, "removed_by_your_notes": removed_by_notes, "notice": notice}
 
 
 def recipe(user: User, option_id: str, servings: int) -> dict:
@@ -166,6 +239,7 @@ def recipe(user: User, option_id: str, servings: int) -> dict:
          "unit": i["unit"], "have": have_it(i["name"], option["confirmed"])}
         for i in full["ingredients"]
     ]
+    ingredients = with_salt(ingredients, servings, option.get("meal_type"))
     recipe_id = _new_id("rec")
     _recipes[recipe_id] = {"title": full["title"], "ingredients": names, "user_id": user.id, "created": time.time()}
     return {
@@ -183,7 +257,7 @@ def swap(user: User, recipe_id: str, missing: str) -> dict:
         raise ApiError(404, "NOT_FOUND", "That recipe has expired. Please open it again.")
     allergies, diet = list(user.allergies or []), user.diet
     try:
-        swaps = llm.suggest_swaps(stored["title"], missing, stored["ingredients"], allergies, diet)
+        swaps = llm.suggest_swaps(stored["title"], missing, stored["ingredients"], allergies, diet, notes=note_texts(user))
     except LLMUnavailable:
         raise ApiError(502, "CHEF_UNAVAILABLE", "The chef is unavailable right now. Please try again.")
     safe = [s.model_dump() for s in swaps if safety.is_safe([s.name, s.note], allergies, diet)]

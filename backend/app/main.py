@@ -9,12 +9,13 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy import text
 
 from .config import get_settings
-from .database import Base, engine
+from .database import Base, engine, upgrade_schema
 from .errors import register_error_handlers
 from .routers import auth, chef, detect, profile
 from .services import detector
 
 Base.metadata.create_all(engine)
+upgrade_schema()
 
 log = logging.getLogger("uvicorn.error")
 

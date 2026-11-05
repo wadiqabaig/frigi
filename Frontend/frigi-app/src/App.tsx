@@ -1,8 +1,8 @@
 import { AnimatePresence, MotionConfig, motion } from 'framer-motion'
 import { Shell, Toast } from './components/Shell'
 import { Button, Mascot } from './components/ui'
-import { AppProvider, useApp, type StateKind } from './state/AppState'
-import { Login, SignUp } from './screens/Auth'
+import { AppProvider, PageRouteContext, useApp, type StateKind } from './state/AppState'
+import { ForgotPassword, Login, SignUp } from './screens/Auth'
 import { Chef } from './screens/Chef'
 import { Cook, Done } from './screens/Cook'
 import { Home } from './screens/Home'
@@ -15,7 +15,7 @@ import { StateScreen } from './screens/States'
 import { Upload } from './screens/Upload'
 import { Welcome } from './screens/Welcome'
 
-const FULL = ['welcome', 'signup', 'login', 'cook', 'done']
+const FULL = ['welcome', 'signup', 'login', 'forgot', 'cook', 'done']
 
 /** Shown while a remembered session's profile loads, or if the backend can't be reached. */
 function Boot() {
@@ -52,6 +52,7 @@ function Screen() {
       case 'welcome': return <Welcome />
       case 'signup': return <SignUp />
       case 'login': return <Login />
+      case 'forgot': return <ForgotPassword />
       case 'home': return <Home />
       case 'upload': return <Upload />
       case 'scanning': return <Scanning />
@@ -75,7 +76,7 @@ function Screen() {
         exit={{ opacity: 0, y: -8 }}
         transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
       >
-        {body}
+        <PageRouteContext.Provider value={route}>{body}</PageRouteContext.Provider>
       </motion.div>
     </AnimatePresence>
   )

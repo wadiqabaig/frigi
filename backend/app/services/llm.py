@@ -91,47 +91,54 @@ def _ask(prompt: str, schema: type[BaseModel]) -> BaseModel:
     raise LLMUnavailable("Gemini failed: " + " | ".join(errors))
 
 
-def _profile_line(allergies: list[str], diet: str) -> str:
-    return f"Allergies: {', '.join(allergies) or 'none'}. Diet: {diet}."
+def _profile_line(allergies: list[str], diet: str, notes: list[str] | None = None) -> str:
+    line = f"Allergies: {', '.join(allergies) or 'none'}. Diet: {diet}."
+    if notes:
+        line += " Notes the user saved after cooking before, follow them where possible: " + "; ".join(notes) + "."
+    return line
 
 
 def _answers_line(answers: dict) -> str:
     return "; ".join(f"{k}: {v}" for k, v in answers.items() if v not in (None, ""))
 
 
-def pick_options(candidates: list[dict], answers: dict, allergies: list[str], diet: str, count: int = 3) -> list[Pick]:
+def pick_options(candidates: list[dict], answers: dict, allergies: list[str], diet: str, count: int = 3,
+                 notes: list[str] | None = None) -> list[Pick]:
     """Choose the best `count` Spoonacular recipes for the user's mood and write a one-line pitch."""
     listing = "\n".join(
         f"{i}. {c['title']} ({c['minutes']} min) uses: {', '.join(c['uses'])}; also needs: {', '.join(c['missing']) or 'nothing'}"
         for i, c in enumerate(candidates)
     )
     prompt = (
-        f"The user answered: {_answers_line(answers)}.\n{_profile_line(allergies, diet)}\n"
+        f"The user answered: {_answers_line(answers)}.\n{_profile_line(allergies, diet, notes)}\n"
         f"Candidate recipes:\n{listing}\n\n"
         f"Pick the {count} best candidates for this user, preferring ones that need fewer extra items "
-        f"and match their mood. Return their index numbers and a one-sentence summary for each."
+        f"and match their cuisine, meal type and mood. Return their index numbers and a one-sentence summary for each."
     )
     picks = _ask(prompt, Picks).picks
     valid = [p for p in picks if 0 <= p.index < len(candidates)]
     return list({p.index: p for p in valid}.values())[:count]
 
 
-def generate_options(ingredients: list[str], answers: dict, allergies: list[str], diet: str, count: int = 3) -> list[GeneratedRecipe]:
+def generate_options(ingredients: list[str], answers: dict, allergies: list[str], diet: str, count: int = 3,
+                     notes: list[str] | None = None) -> list[GeneratedRecipe]:
     """Write recipes from scratch (used when Spoonacular is unavailable, and for comparison testing)."""
     prompt = (
         f"Ingredients the user has: {', '.join(ingredients)}.\n"
-        f"The user answered: {_answers_line(answers)}.\n{_profile_line(allergies, diet)}\n\n"
-        f"Write {count} different recipes that mainly use these ingredients. Common pantry items "
+        f"The user answered: {_answers_line(answers)}.\n{_profile_line(allergies, diet, notes)}\n\n"
+        f"Write {count} different recipes that mainly use these ingredients and match the cuisine and meal type asked for. Common pantry items "
         f"(salt, pepper, oil, water) may be added. Give quantities for the number of servings you state, "
-        f"using units such as g, ml, tsp, tbsp, cup or an empty unit for whole items. Steps must be short."
+        f"using units such as g, ml, tsp, tbsp, cup or an empty unit for whole items. Always give an exact amount of salt "
+        f"if the dish uses salt. Steps must be short."
     )
     return _ask(prompt, GeneratedRecipes).recipes[:count]
 
 
-def suggest_swaps(title: str, missing: str, recipe_ingredients: list[str], allergies: list[str], diet: str) -> list[Swap]:
+def suggest_swaps(title: str, missing: str, recipe_ingredients: list[str], allergies: list[str], diet: str,
+                  notes: list[str] | None = None) -> list[Swap]:
     prompt = (
         f"Recipe: {title}. Its ingredients: {', '.join(recipe_ingredients)}.\n"
-        f"{_profile_line(allergies, diet)}\n"
+        f"{_profile_line(allergies, diet, notes)}\n"
         f"The user does not have: {missing}. Suggest up to 3 replacements with a short note on how much "
         f"to use or how to adjust the recipe."
     )

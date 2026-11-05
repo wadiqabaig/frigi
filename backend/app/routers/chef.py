@@ -8,9 +8,12 @@ from ..services import chef
 
 router = APIRouter(prefix="/chef", tags=["chef"])
 
+# Every question also accepts a typed answer, e.g. "Pakistani" for cuisine.
 QUESTIONS = [
     {"key": "cuisine", "text": "What kind of food are you in the mood for?",
-     "options": ["Any", "Italian", "Indian", "Asian", "Middle Eastern", "Mexican"]},
+     "options": ["Any", "Italian", "Indian", "Pakistani", "Asian", "Middle Eastern", "Mexican"]},
+    {"key": "meal_type", "text": "What are you making?",
+     "options": ["Main course", "Dessert", "Breakfast", "Snack", "Side dish", "Any"]},
     {"key": "mood", "text": "How are you feeling?",
      "options": ["Something quick", "Comfort food", "Something healthy", "Something new"]},
     {"key": "max_minutes", "text": "How much time do you have?", "options": ["15", "30", "60"]},

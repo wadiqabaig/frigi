@@ -208,3 +208,27 @@ Amplify Hosting publishes the web app in `Frontend/frigi-app` at an HTTPS addres
 6. Open the `https://main.xxxxx.amplifyapp.com` address it shows, and give that address to the team and the marker.
 
 The EC2 server must be running for the site to work: while it is stopped, the site opens but cannot log in or find recipes.
+
+---
+
+## Step 12. Turn on Amazon Cognito log-in
+
+Cognito sends the sign-up and password-reset codes by email, checks passwords and limits repeated attempts. The backend checks Cognito's token on every request and keeps the profile.
+
+1. **Create the user pool.** AWS console (us-east-1) → **Cognito** → **Create user pool** → **Single-page application (SPA)**, name `frigi-web` → sign-in with **Email** → **Enable self-registration** → required attributes **email** and **name** → **Create user directory**.
+2. **Note the two IDs:** the **User pool ID** (like `us-east-1_AbC123`) and the **App client ID**. Neither is secret.
+3. **Backend, on the server.** Add both IDs to `~/frigi/backend/.env`:
+
+   ```
+   COGNITO_USER_POOL_ID=us-east-1_AbC123
+   COGNITO_CLIENT_ID=your-app-client-id
+   ```
+
+   Then run `cd ~/frigi && git pull && docker compose --profile https up -d --build`.
+4. **Website.** In `amplify.yml`, add `VITE_COGNITO_USER_POOL_ID` and `VITE_COGNITO_CLIENT_ID` under `env: variables:` with the same values, and merge to `main`. Amplify rebuilds the site.
+5. **Test it:** sign up with a real email, enter the 6-digit code, log out, use **Forgot password?**, then delete the test account from the profile page.
+
+Do steps 3 and 4 together. With Cognito on, the backend refuses the old log-in, so a website without the Cognito IDs couldn't sign anyone in.
+
+Cognito's built-in email sender is limited to a small number of emails a day, which is enough for testing and a demo. For more, connect Amazon SES in the user pool's messaging settings.
+

@@ -16,6 +16,8 @@ export interface SignupDto {
   household_size: number
 }
 
+export interface NoteDto { id: string; text: string; created_at: string }
+
 export interface ProfileDto {
   id: number
   name: string
@@ -24,6 +26,7 @@ export interface ProfileDto {
   allergies: string[]
   diet: string
   household_size: number
+  chef_notes?: NoteDto[]
 }
 
 export type ProfileUpdateDto = Partial<Pick<ProfileDto, 'name' | 'age' | 'allergies' | 'diet' | 'household_size'>>
@@ -32,7 +35,7 @@ export interface IngredientDto { id: string | null; name: string }
 export interface IngredientsDto { detectable: IngredientDto[]; staples: IngredientDto[] }
 
 export interface DetectionDto { id: string; name: string; confidence: number; box: [number, number, number, number] }
-export interface PhotoResultDto { index: number; width: number; height: number; detections: DetectionDto[] }
+export interface PhotoResultDto { index: number; width: number; height: number; detections: DetectionDto[]; sharpness?: number; blurry?: boolean }
 export interface MergedIngredientDto { id: string; name: string; confidence: number; count: number; photos: number[] }
 export interface DetectDto {
   photos: PhotoResultDto[]
@@ -47,6 +50,7 @@ export interface ChefQuestionsDto { questions: ChefQuestionDto[] }
 
 export interface ChefAnswersDto {
   cuisine?: string
+  meal_type?: string
   mood?: string
   max_minutes?: number
   servings?: number
@@ -63,9 +67,9 @@ export interface RecipeOptionDto {
   image_url: string | null
   source: 'spoonacular' | 'llm'
 }
-export interface OptionsDto { options: RecipeOptionDto[]; removed_by_safety_filter: number; notice: string | null }
+export interface OptionsDto { options: RecipeOptionDto[]; removed_by_safety_filter: number; removed_by_your_notes?: number; notice: string | null }
 
-export interface RecipeIngredientDto { name: string; quantity: number; unit: string; have: boolean }
+export interface RecipeIngredientDto { name: string; quantity: number; unit: string; have: boolean; note?: string | null }
 export interface RecipeDto {
   recipe_id: string
   title: string

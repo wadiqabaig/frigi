@@ -86,7 +86,7 @@ def test_falls_back_to_llm_when_spoonacular_unavailable(monkeypatch):
     def unavailable(*a, **k):
         raise SpoonacularUnavailable("points used up")
 
-    def generate(ingredients, answers, allergies, diet, count=3):
+    def generate(ingredients, answers, allergies, diet, count=3, notes=None):
         meat = GeneratedRecipe(title="Chicken Bake", summary="", minutes=40, servings=2, steps=["Bake."],
                                ingredients=[RecipeIngredient(name="chicken", quantity=300, unit="g")])
         veg = [GeneratedRecipe(title=f"Veg {n}", summary="", minutes=15, servings=2, steps=["Cook."],

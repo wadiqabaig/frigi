@@ -1,5 +1,5 @@
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
-import { ArrowLeft, ArrowRight, Check, Plus, X } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, ArrowRight, Check, Plus, X } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { IngredientIcon } from '../components/IngredientIcon'
 import { IngredientSearch } from '../components/IngredientSearch'
@@ -9,17 +9,20 @@ import { api, isAborted } from '../lib/api'
 import { cx } from '../lib/format'
 import { ingredientKey } from '../lib/text'
 import type { IngredientRef, InventoryItem } from '../lib/types'
-import { useApp } from '../state/AppState'
+import { useApp, usePageRoute } from '../state/AppState'
 import { StateView } from './States'
 
 // Identity used for the list: the detector id, or the normalised name for custom items.
 const keyOf = (i: IngredientRef) => i.id ?? 'name:' + ingredientKey(i.name)
+// Detections below this confidence start unticked, marked "Maybe", so guesses don't slip into recipes.
+const MAYBE_BELOW = 0.5
 // True when two references describe the same ingredient.
 const same = (a: IngredientRef, b: IngredientRef) => (!!a.id && a.id === b.id) || ingredientKey(a.name) === ingredientKey(b.name)
 
 // Confirm the scanned ingredients, or build the list by hand.
 export function Ingredients() {
-  const { scan, photos, inventory, setInventory, go, back, route, notify } = useApp()
+  const { scan, photos, inventory, setInventory, go, back, notify } = useApp()
+  const route = usePageRoute()
   const manual = !!route.params?.manual || !scan
   const detected = useMemo<InventoryItem[]>(() => {
     if (manual || !scan) return []
@@ -28,7 +31,7 @@ export function Ingredients() {
   }, [scan, manual])
 
   const [items, setItems] = useState<InventoryItem[]>(() => (detected.length ? detected : inventory))
-  const [checked, setChecked] = useState<Set<string>>(() => new Set((detected.length ? detected : inventory).map(keyOf)))
+  const [checked, setChecked] = useState<Set<string>>(() => new Set((detected.length ? detected.filter((i) => (i.confidence ?? 1) >= MAYBE_BELOW) : inventory).map(keyOf)))
   const [hover, setHover] = useState<string | null>(null)
   const [img, setImg] = useState(0)
   const [staples, setStaples] = useState<IngredientRef[] | null>(scan && !manual ? scan.askAboutStaples : null)
@@ -66,6 +69,8 @@ export function Ingredients() {
 
   if (!manual && detected.length === 0) return <StateView kind="no-ingredients" />
 
+  const blurry = manual ? [] : (scan?.photos ?? []).filter((p) => p.blurry).map((p) => p.index + 1)
+  const maybeCount = detected.filter((i) => (i.confidence ?? 1) < MAYBE_BELOW).length
   const scanPhoto = scan?.photos.find((p) => p.index === img)
   const photo = photos[img]
   const boxes = photo?.url ? scanPhoto?.detections ?? [] : []
@@ -137,6 +142,22 @@ export function Ingredients() {
             {!manual && <Mascot pose="confirm" size={92} className="hidden shrink-0 sm:inline-flex" shadow={false} />}
           </div>
 
+          {blurry.length > 0 && (
+            <div role="alert" className="mt-4 flex items-start gap-3 rounded-3xl bg-red-50 p-4">
+              <AlertTriangle size={20} className="mt-0.5 shrink-0 text-red" />
+              <div className="min-w-0 flex-1">
+                <p className="font-bold text-brown">Photo {blurry.join(' and ')} look{blurry.length === 1 ? 's' : ''} blurry</p>
+                <p className="text-sm text-brown-70">Frigi may have missed or misread items. Retake it holding the phone still, or carry on and check the list carefully.</p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <Button size="sm" onClick={() => go('upload')}>Retake photos</Button>
+                </div>
+              </div>
+            </div>
+          )}
+          {maybeCount > 0 && (
+            <p className="mt-3 rounded-2xl bg-sun-50 px-4 py-2 text-sm font-semibold text-brown">Frigi wasn’t sure about {maybeCount} item{maybeCount === 1 ? '' : 's'}, so {maybeCount === 1 ? 'it starts' : 'they start'} unticked. Tick {maybeCount === 1 ? 'it' : 'them'} if correct.</p>
+          )}
+
           <ul className="mt-5 grid grid-cols-1 gap-2.5 sm:grid-cols-2" aria-label="Ingredients">
             <AnimatePresence initial={false}>
               {items.map((item) => {
@@ -149,7 +170,7 @@ export function Ingredients() {
                         <IngredientIcon name={item.name} id={item.id} size={44} />
                         <span className="min-w-0 flex-1">
                           <span className="block truncate font-bold text-brown">{item.name}</span>
-                          <span className="block text-xs text-brown-50">{item.confidence ? `${Math.round(item.confidence * 100)}% sure` : item.source === 'manual' ? 'Your own ingredient' : 'Added by you'}</span>
+                          <span className="block text-xs text-brown-50">{item.confidence ? `${item.confidence < MAYBE_BELOW ? 'Maybe · ' : ''}${Math.round(item.confidence * 100)}% sure` : item.source === 'manual' ? 'Your own ingredient' : 'Added by you'}</span>
                         </span>
                         <motion.span animate={{ scale: on ? 1 : 0.85 }} className={cx('grid h-7 w-7 shrink-0 place-items-center rounded-full', on ? 'bg-red text-white' : 'bg-white text-transparent ring-2 ring-inset ring-brown-20')}>
                           <Check size={15} strokeWidth={3.2} />

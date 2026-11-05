@@ -77,8 +77,8 @@ def test_detect_merges_photos():
     assert "Eggs" not in [s["name"] for s in body["ask_about_staples"]]
 
 
-def test_detect_rejects_four_photos_and_bad_files():
-    four = [("photos", (f"p{i}.jpg", jpeg_bytes(), "image/jpeg")) for i in range(4)]
-    assert client.post("/detect", files=four).json()["error"]["code"] == "TOO_MANY_PHOTOS"
+def test_detect_rejects_six_photos_and_bad_files():
+    six = [("photos", (f"p{i}.jpg", jpeg_bytes(), "image/jpeg")) for i in range(6)]
+    assert client.post("/detect", files=six).json()["error"]["code"] == "TOO_MANY_PHOTOS"
     bad = [("photos", ("notes.txt", b"hello", "text/plain"))]
     assert client.post("/detect", files=bad).json()["error"]["code"] == "UNSUPPORTED_PHOTO"

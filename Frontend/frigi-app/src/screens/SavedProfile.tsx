@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion'
-import { AlertTriangle, ArrowLeft, Check, Loader2, LogOut, Pencil } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, Check, Loader2, LogOut, Pencil, Trash2, X } from 'lucide-react'
 import { useState } from 'react'
 import { POSES } from '../assets'
 import { AllergyPicker, DietPicker, Field, Stepper, inputCls } from '../components/Pickers'
@@ -58,7 +58,12 @@ export function Saved() {
 
 // Shows and edits the user's profile and preferences.
 export function Profile() {
-  const { setProfile, signOut, go, notify } = useApp()
+  const { setProfile, signOut, go, notify, deleteAccount } = useApp()
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [deleteText, setDeleteText] = useState('')
+  const [deleting, setDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState('')
+  const [noteBusy, setNoteBusy] = useState<string | null>(null)
   const profile = useProfile()
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState<P>(profile)
@@ -86,6 +91,29 @@ export function Profile() {
     } catch (e) {
       setError(errorMessage(e, 'Couldn’t save your preferences. Please try again.'))
     } finally { setSaving(false) }
+  }
+
+  // Removes one saved note for the chef.
+  const removeNote = async (id: string) => {
+    setNoteBusy(id)
+    try {
+      await api.deleteNote(id)
+      setProfile({ ...profile, chefNotes: profile.chefNotes.filter((n) => n.id !== id) })
+    } catch (e) {
+      notify(errorMessage(e, 'Couldn’t delete that note.'))
+    } finally { setNoteBusy(null) }
+  }
+
+  // Permanently deletes the account after the user types DELETE.
+  const removeAccount = async () => {
+    setDeleting(true); setDeleteError('')
+    try {
+      await deleteAccount()
+      notify('Your account has been deleted')
+    } catch (e) {
+      setDeleteError(errorMessage(e, 'Couldn’t delete your account. Please try again.'))
+      setDeleting(false)
+    }
   }
 
   return (
@@ -152,13 +180,46 @@ export function Profile() {
           )}
         </section>
 
-        <section aria-labelledby="acc-h" className="self-start rounded-5xl bg-white p-5 shadow-soft sm:p-6">
+        <div className="space-y-6 self-start">
+        <section aria-labelledby="notes-h" className="rounded-5xl bg-white p-5 shadow-soft sm:p-6">
+          <h2 id="notes-h" className="font-display text-xl font-semibold text-brown">Notes for the chef</h2>
+          <p className="mt-1 text-sm text-brown-70">Saved after cooking. Frigi uses them for future recipes, and leaves out foods you said no to.</p>
+          {profile.chefNotes.length === 0 ? (
+            <p className="mt-3 rounded-3xl bg-cream-50 p-3 text-sm text-brown-70">No notes yet. After you cook a recipe, tell Frigi what you’d change.</p>
+          ) : (
+            <ul className="mt-3 space-y-2">
+              {profile.chefNotes.map((n) => (
+                <li key={n.id} className="flex items-center gap-2 rounded-3xl bg-cream-50 p-2 pl-4">
+                  <span className="min-w-0 flex-1 text-sm font-semibold text-brown">{n.text}</span>
+                  <button onClick={() => removeNote(n.id)} disabled={noteBusy === n.id} aria-label={`Delete note: ${n.text}`} className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-brown-50 hover:bg-red-50 hover:text-red disabled:opacity-40"><X size={16} /></button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        <section aria-labelledby="acc-h" className="rounded-5xl bg-white p-5 shadow-soft sm:p-6">
           <h2 id="acc-h" className="font-display text-xl font-semibold text-brown">Account</h2>
           <p className="mt-1 text-sm text-brown-70">Signed in as <span className="font-bold text-brown">{profile.email}</span>.</p>
           <div className="mt-4 flex flex-wrap gap-2">
             <Button size="sm" variant="outline" icon={<LogOut size={15} />} onClick={() => { signOut(); notify('Signed out') }}>Sign out</Button>
+            {!confirmDelete && <Button size="sm" variant="ghost" icon={<Trash2 size={15} />} onClick={() => setConfirmDelete(true)}>Delete account</Button>}
           </div>
+          {confirmDelete && (
+            <div role="alert" className="mt-4 rounded-3xl bg-red-50 p-4">
+              <p className="font-bold text-brown">Delete your account permanently?</p>
+              <p className="mt-1 text-sm text-brown-70">This removes your profile, allergies, diet and notes, and saved recipes on this device. It can’t be undone.</p>
+              <label htmlFor="del-confirm" className="mt-3 block text-sm font-bold text-brown">Type DELETE to confirm</label>
+              <input id="del-confirm" className={inputCls + ' mt-1'} value={deleteText} onChange={(e) => setDeleteText(e.target.value)} autoComplete="off" />
+              {deleteError && <p className="mt-2 text-sm font-bold text-red-600">{deleteError}</p>}
+              <div className="mt-3 flex flex-wrap gap-2">
+                <Button size="sm" onClick={removeAccount} disabled={deleteText !== 'DELETE' || deleting} icon={deleting ? <Loader2 size={15} className="animate-spin" /> : <Trash2 size={15} />}>{deleting ? 'Deleting…' : 'Delete my account'}</Button>
+                <Button size="sm" variant="ghost" onClick={() => { setConfirmDelete(false); setDeleteText(''); setDeleteError('') }} disabled={deleting}>Cancel</Button>
+              </div>
+            </div>
+          )}
         </section>
+        </div>
       </div>
     </div>
   )

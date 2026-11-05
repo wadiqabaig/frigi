@@ -2,7 +2,7 @@ import { motion, useReducedMotion } from 'framer-motion'
 import { ArrowLeft } from 'lucide-react'
 import type { Pose } from '../assets'
 import { Button, IconButton, Mascot } from '../components/ui'
-import { useApp, type StateKind } from '../state/AppState'
+import { useApp, type StateKind, usePageRoute } from '../state/AppState'
 import { cx } from '../lib/format'
 
 export interface StateAction { label: string; run: () => void; variant?: 'primary' | 'secondary' | 'outline' }
@@ -11,7 +11,7 @@ interface StateDef { pose: Pose; eyebrow: string; title: string; body: string; t
 const STATE_DEFS: Record<StateKind, StateDef> = {
   'no-ingredients': { pose: 'error', eyebrow: 'Hmm, an empty shelf?', title: 'Frigi couldn’t spot any ingredients', body: 'The photo might be too dark, blurry or taken from far away. Try another photo with the fridge door wide open, or add what you have by hand.', tone: 'calm' },
   'bad-format': { pose: 'error', eyebrow: 'That file won’t open', title: 'Frigi can only read photos', body: 'Please choose a JPG, PNG or HEIC image up to 10 MB.', tone: 'calm' },
-  'too-many': { pose: 'confirm', eyebrow: 'Whoa, that’s a lot!', title: 'Up to 3 photos per scan', body: 'Pick the three photos that show the most food. Frigi combines everything it finds into one list.', tone: 'calm' },
+  'too-many': { pose: 'confirm', eyebrow: 'Whoa, that’s a lot!', title: 'Up to 5 photos per scan', body: 'Pick the five photos that show the most food. Frigi combines everything it finds into one list.', tone: 'calm' },
   server: { pose: 'error', eyebrow: 'Kitchen’s a bit busy', title: 'Frigi’s AI is unavailable right now', body: 'The service didn’t respond. Your photos and ingredients are still here, so you can try again in a moment or add ingredients yourself.', tone: 'calm' },
   'no-recipes': { pose: 'mealPlan', eyebrow: 'Back to the drawing board', title: 'No recipes match just yet', body: 'Frigi couldn’t find a safe recipe with these ingredients and choices. Add a few more ingredients or loosen your preferences.', tone: 'calm' },
   expired: { pose: 'error', eyebrow: 'You’ve been away a while', title: 'Your session has expired', body: 'For your security, please log in again. Your saved recipes are still here.', tone: 'calm' },
@@ -25,7 +25,7 @@ function useStateActions(kind: StateKind): StateAction[] {
   switch (kind) {
     case 'no-ingredients': return [{ label: 'Upload another photo', run: () => go('upload') }, { label: 'Add ingredients manually', run: () => go('ingredients', { manual: 1 }), variant: 'secondary' }]
     case 'bad-format': return [{ label: 'Choose another photo', run: () => go('upload') }, { label: 'Return home', run: () => go('home'), variant: 'secondary' }]
-    case 'too-many': return [{ label: 'Pick up to 3 photos', run: () => go('upload') }]
+    case 'too-many': return [{ label: 'Pick up to 5 photos', run: () => go('upload') }]
     case 'server': return [{ label: 'Try again', run: () => go('scanning') }, { label: 'Add ingredients manually', run: () => go('ingredients', { manual: 1 }), variant: 'secondary' }]
     case 'no-recipes': return [{ label: 'Add more ingredients', run: () => go('ingredients') }, { label: 'Change preferences', run: () => go('chef'), variant: 'secondary' }]
     case 'expired': return user ? [{ label: 'Return home', run: () => go('home') }] : [{ label: 'Log in again', run: () => go('login') }]
@@ -65,7 +65,8 @@ export function StateView({ kind, compact, actions, title, body }: { kind: State
 
 /** Full-screen state route. `message` carries the backend's own explanation when there is one. */
 export function StateScreen({ kind }: { kind: StateKind }) {
-  const { back, canGoBack, route } = useApp()
+  const { back, canGoBack } = useApp()
+  const route = usePageRoute()
   const message = route.params?.message ? String(route.params.message) : undefined
   return (
     <div className="mx-auto flex min-h-[80vh] max-w-2xl flex-col justify-center">

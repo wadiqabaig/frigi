@@ -7,24 +7,16 @@ import { Button, IconButton, Mascot } from '../components/ui'
 import { cx } from '../lib/format'
 import { useApp, type Photo } from '../state/AppState'
 
-// Limits from docs/api-contract.md, POST /detect.
-const OK_EXT = ['jpg', 'jpeg', 'png', 'heic', 'heif']
-const MAX = 3
-const MAX_BYTES = 10 * 1024 * 1024
-// File extension in lowercase.
-const ext = (n: string) => n.split('.').pop()?.toLowerCase() ?? ''
-// HEIC photos can't be previewed in most browsers but can still be scanned.
-const isHeic = (f: File) => ['heic', 'heif'].includes(ext(f.name)) || /hei[cf]/i.test(f.type)
-// True for JPG, PNG and HEIC files.
-const isType = (f: File) => OK_EXT.includes(ext(f.name)) || ['image/jpeg', 'image/png', 'image/heic', 'image/heif'].includes(f.type)
-// True for a supported photo within the size limit.
-const isOk = (f: File) => isType(f) && f.size <= MAX_BYTES
-// Explains why a file was rejected.
-const whyNot = (f: File) => (isType(f) ? `${f.name} is larger than 10 MB` : `${f.name} isn’t a JPG, PNG or HEIC photo`)
+import { preparePhoto } from '../lib/photo'
+
+// Limit from docs/api-contract.md, POST /detect.
+const MAX = 5
+// Any image type: photos are converted to JPEG on the device before upload (see lib/photo.ts).
+const ACCEPT = 'image/*,.heic,.heif'
 
 type Notice = { kind: 'too-many' | 'bad-format'; text: string } | null
 
-// Choose or take up to three fridge photos.
+// Choose or take up to five fridge photos.
 export function Upload() {
   const { photos, setPhotos, go, back } = useApp()
   const [notice, setNotice] = useState<Notice>(null)
@@ -35,21 +27,34 @@ export function Upload() {
   const replaceIdx = useRef<number>(-1)
   const reduce = useReducedMotion()
 
-  // Wraps a file with a preview URL (none for HEIC).
-  const toPhoto = (f: File): Photo => ({ id: crypto.randomUUID?.() ?? String(Math.random()), name: f.name, file: f, heic: isHeic(f), url: isHeic(f) ? null : URL.createObjectURL(f) })
+  const [preparing, setPreparing] = useState(false)
+
+  // Converts each file for upload; collects a readable reason for any that can't be used.
+  const prepare = async (files: File[]) => {
+    const good: Photo[] = []
+    const errors: string[] = []
+    for (const f of files) {
+      try {
+        const p = await preparePhoto(f)
+        good.push({ id: crypto.randomUUID?.() ?? String(Math.random()), name: f.name, file: p.file, heic: !p.converted && !p.previewUrl, url: p.previewUrl })
+      } catch (e) { errors.push((e as Error).message) }
+    }
+    return { good, errors }
+  }
 
   // Adds valid photos up to the limit and explains anything that was skipped.
-  const addFiles = (list: FileList | File[] | null) => {
-    if (!list) return
-    const files = [...list]
-    const bad = files.filter((f) => !isOk(f))
-    const good = files.filter(isOk)
+  const addFiles = async (list: FileList | File[] | null) => {
+    if (!list || !list.length) return
     const room = MAX - photos.length
+    const files = [...list]
+    setPreparing(true)
+    const { good, errors } = await prepare(files.slice(0, Math.max(room, 0)))
+    setPreparing(false)
     let n: Notice = null
-    if (bad.length) n = { kind: 'bad-format', text: `${bad.map(whyNot).join('; ')}. Frigi reads JPG, PNG and HEIC photos up to 10 MB.` }
-    if (good.length > room) n = { kind: 'too-many', text: `Frigi can look at up to ${MAX} photos at once, so I kept the first ${Math.max(room, 0)}. Remove one to swap it out.` }
+    if (errors.length) n = { kind: 'bad-format', text: errors.join(' ') }
+    if (files.length > room) n = { kind: 'too-many', text: `Frigi can look at up to ${MAX} photos at once, so I kept the first ${Math.max(room, 0)}. Remove one to swap it out.` }
     setNotice(n)
-    if (room > 0 && good.length) setPhotos([...photos, ...good.slice(0, room).map(toPhoto)])
+    if (good.length) setPhotos([...photos, ...good])
   }
 
   // Removes a photo and frees its preview.
@@ -59,11 +64,14 @@ export function Upload() {
     setPhotos(photos.filter((_, j) => j !== i)); setNotice(null)
   }
   // Swaps one photo for another file.
-  const replace = (i: number, f: File | undefined) => {
+  const replace = async (i: number, f: File | undefined) => {
     if (!f) return
-    if (!isOk(f)) { setNotice({ kind: 'bad-format', text: `${whyNot(f)}. Try a JPG, PNG or HEIC photo up to 10 MB.` }); return }
+    setPreparing(true)
+    const { good, errors } = await prepare([f])
+    setPreparing(false)
+    if (!good.length) { setNotice({ kind: 'bad-format', text: errors.join(' ') }); return }
     const old = photos[i]; if (old.url) URL.revokeObjectURL(old.url)
-    setPhotos(photos.map((p, j) => (j === i ? toPhoto(f) : p))); setNotice(null)
+    setPhotos(photos.map((p, j) => (j === i ? good[0] : p))); setNotice(null)
   }
 
   return (
@@ -78,13 +86,13 @@ export function Upload() {
       <div className="grid gap-6 lg:grid-cols-[1fr_340px] lg:gap-8">
         <div className="min-w-0">
           <h1 className="font-display text-[32px] font-semibold leading-tight text-brown sm:text-[40px]">Show Frigi your fridge</h1>
-          <p className="mt-1 max-w-lg text-brown-70">Open the door wide, step back a little and snap. Add up to three photos for shelves, door and drawers.</p>
+          <p className="mt-1 max-w-lg text-brown-70">Open the door wide and fit the whole fridge in the frame, then add close-ups of drawers and the door. Up to five photos.</p>
 
           {/* Drop zone */}
           <motion.div
             onDragOver={(e) => { e.preventDefault(); setDrag(true) }}
             onDragLeave={() => setDrag(false)}
-            onDrop={(e) => { e.preventDefault(); setDrag(false); addFiles(e.dataTransfer.files) }}
+            onDrop={(e) => { e.preventDefault(); setDrag(false); void addFiles(e.dataTransfer.files) }}
             animate={{ scale: drag ? 1.015 : 1 }}
             className={cx('group relative mt-6 overflow-hidden rounded-5xl border-[3px] border-dashed p-6 text-center transition-colors sm:p-8', drag ? 'border-red bg-red-50' : 'border-cream-200 bg-white hover:border-sun hover:bg-sun-50/50')}
           >
@@ -92,14 +100,14 @@ export function Upload() {
               <Camera size={34} strokeWidth={2.2} />
             </motion.div>
             <p className="mt-4 font-display text-xl font-semibold text-brown">{drag ? 'Drop them in!' : 'Drag photos here, or choose from your device'}</p>
-            <p className="mt-1 text-sm text-brown-70">JPG, PNG or HEIC · up to 10 MB each · {photos.length}/{MAX} added</p>
+            <p className="mt-1 text-sm text-brown-70">{preparing ? 'Getting your photos ready…' : `JPG, PNG or HEIC · ${photos.length}/${MAX} added`}</p>
             <div className="mt-5 flex flex-col justify-center gap-2.5 sm:flex-row">
-              <Button onClick={() => fileRef.current?.click()} icon={<UploadIcon size={18} />} disabled={photos.length >= MAX}>Choose photos</Button>
-              <Button variant="secondary" onClick={() => camRef.current?.click()} icon={<Camera size={18} />} disabled={photos.length >= MAX}>Take a photo</Button>
+              <Button onClick={() => fileRef.current?.click()} icon={<UploadIcon size={18} />} disabled={photos.length >= MAX || preparing}>Choose photos</Button>
+              <Button variant="secondary" onClick={() => camRef.current?.click()} icon={<Camera size={18} />} disabled={photos.length >= MAX || preparing}>Take a photo</Button>
             </div>
-            <input ref={fileRef} id="up-files" type="file" multiple accept=".jpg,.jpeg,.png,.heic,.heif,image/jpeg,image/png,image/heic,image/heif" className="sr-only" onChange={(e) => { addFiles(e.target.files); e.target.value = '' }} aria-label="Choose fridge photos" />
-            <input ref={camRef} id="up-cam" type="file" accept="image/*" capture="environment" className="sr-only" onChange={(e) => { addFiles(e.target.files); e.target.value = '' }} aria-label="Take a fridge photo" />
-            <input ref={replaceRef} id="up-replace" type="file" accept=".jpg,.jpeg,.png,.heic,.heif,image/jpeg,image/png,image/heic" className="sr-only" onChange={(e) => { replace(replaceIdx.current, e.target.files?.[0]); e.target.value = '' }} aria-label="Replace photo" />
+            <input ref={fileRef} id="up-files" type="file" multiple accept={ACCEPT} className="sr-only" onChange={(e) => { void addFiles(e.target.files); e.target.value = '' }} aria-label="Choose fridge photos" />
+            <input ref={camRef} id="up-cam" type="file" accept="image/*" capture="environment" className="sr-only" onChange={(e) => { void addFiles(e.target.files); e.target.value = '' }} aria-label="Take a fridge photo" />
+            <input ref={replaceRef} id="up-replace" type="file" accept={ACCEPT} className="sr-only" onChange={(e) => { void replace(replaceIdx.current, e.target.files?.[0]); e.target.value = '' }} aria-label="Replace photo" />
           </motion.div>
 
           {/* Notices */}
@@ -109,7 +117,7 @@ export function Upload() {
                 <div className={cx('mt-4 flex items-center gap-3 rounded-3xl p-3 pr-4', notice.kind === 'bad-format' ? 'bg-red-50' : 'bg-sun-50')}>
                   <img src={notice.kind === 'bad-format' ? POSES.error : POSES.confirm} alt="" className="h-16 w-auto shrink-0" />
                   <div className="min-w-0">
-                    <p className="font-bold text-brown">{notice.kind === 'bad-format' ? 'Frigi can’t open that file' : 'That’s more than 3 photos'}</p>
+                    <p className="font-bold text-brown">{notice.kind === 'bad-format' ? 'Frigi can’t open that file' : `That’s more than ${MAX} photos`}</p>
                     <p className="text-sm text-brown-70">{notice.text}</p>
                   </div>
                 </div>
@@ -144,7 +152,7 @@ export function Upload() {
           </div>
 
           <div className="sticky bottom-[96px] z-10 mt-6 lg:static">
-            <Button size="lg" className="w-full sm:w-auto" disabled={!photos.length} onClick={() => go('scanning')} icon={<ScanLine size={19} />}>
+            <Button size="lg" className="w-full sm:w-auto" disabled={!photos.length || preparing} onClick={() => go('scanning')} icon={<ScanLine size={19} />}>
               Scan Ingredients{photos.length ? ` (${photos.length})` : ''}
             </Button>
           </div>
@@ -159,14 +167,14 @@ export function Upload() {
           </div>
           <Mascot pose="upload" size={230} className="mt-4" />
           <ul className="mt-4 w-full space-y-2 text-left text-sm">
-            {['Door fully open', 'One shelf per photo is fine', 'Labels facing the camera'].map((t) => (
+            {['Door fully open', 'Whole fridge in the frame', 'Drawers as separate photos', 'Hold still so it isn’t blurry'].map((t) => (
               <li key={t} className="flex items-center gap-2 rounded-2xl bg-white/70 px-3 py-2 font-semibold text-brown"><span className="h-2 w-2 rounded-full bg-red" />{t}</li>
             ))}
           </ul>
         </aside>
         <div className="flex items-center gap-3 rounded-4xl bg-sun-50 p-3 lg:hidden">
           <img src={POSES.upload} alt="" className="h-20 w-auto" />
-          <p className="text-sm font-semibold text-brown">“Good light and a clear view of each shelf help me spot more!”</p>
+          <p className="text-sm font-semibold text-brown">“Fit the whole fridge in the frame, add drawers as extra photos, and hold still so it isn’t blurry!”</p>
         </div>
       </div>
     </div>

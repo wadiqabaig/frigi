@@ -50,7 +50,7 @@ export function Home() {
             <div className="relative z-[1]">
               <Pill tone="white" className="text-red"><Camera size={13} /> AI fridge scan</Pill>
               <h2 id="scan-hero" className="mt-3 max-w-sm max-sm:pr-24 font-display text-[30px] font-semibold leading-[1.08] text-brown [text-wrap:balance] sm:text-[38px]">What’s in your fridge today?</h2>
-              <p className="mt-2 max-w-sm text-[15px] leading-relaxed text-brown-70 max-sm:pr-6">Snap up to three photos and Frigi will list your ingredients.</p>
+              <p className="mt-2 max-w-sm text-[15px] leading-relaxed text-brown-70 max-sm:pr-6">Snap up to five photos and Frigi will list your ingredients.</p>
               <div className="mt-6 flex flex-wrap gap-2.5">
                 <Button size="lg" onClick={() => go('upload')} icon={<Camera size={19} />} className="max-sm:w-full">Scan My Fridge</Button>
                 <Button size="lg" variant="ghost" onClick={() => go('ingredients', { manual: 1 })} icon={<PencilLine size={17} />} className="max-sm:w-full">Add by hand</Button>

@@ -41,6 +41,15 @@ Both sides use these exact values.
 
 ---
 
+### Changes in version 1.1 (6 Nov 2026)
+
+- **Log-in:** Amazon Cognito handles sign-up with an emailed code, log-in, forgot password and account deletion. Send Cognito's **ID token** as the bearer token. With Cognito switched on, `/auth/signup` and `/auth/login` answer `410 USE_COGNITO`. The first request with a new Cognito account creates its profile; an existing profile with the same verified email is linked.
+- **Photos:** up to 5 photos of 15 MB each; every photo reports `sharpness` and `blurry`.
+- **Chef:** a new `meal_type` question; every question also accepts typed answers.
+- **Notes:** the profile has `chef_notes`, with new endpoints to add and delete them. Options report `removed_by_your_notes`.
+- **Recipes:** salt without an amount gets a suggested amount and a `note`.
+- **Profile:** `DELETE /profile` deletes the account's data.
+
 ## 1. Health
 
 ### `GET /health`
@@ -94,6 +103,19 @@ Send only the fields that change. Returns the full updated profile.
 { "allergies": ["peanut"], "household_size": 2 }
 ```
 
+### `DELETE /profile` (login required)
+Deletes the profile, including allergies, diet and notes. Response `204`. The app also deletes the Cognito account.
+
+### `POST /profile/notes` (login required)
+Saves something to change next time, which the chef reads on later requests. Notes such as "no mushrooms" also remove matching recipes; "less spicy" is passed to Gemini only.
+```json
+{ "text": "No mushrooms next time" }
+```
+Response `201`: `{ "id": "a1b2c3d4", "text": "No mushrooms next time", "created_at": "2026-11-06T10:00:00+00:00" }`. Up to 30 notes; more give `400 TOO_MANY_NOTES`.
+
+### `DELETE /profile/notes/{id}` (login required)
+Response `204`, or `404` if the note doesn't exist.
+
 ## 3. Ingredients
 
 ### `GET /ingredients`
@@ -117,7 +139,7 @@ Used for the "add an item" picker and the staples question.
 ## 4. Detection (FR2–FR4)
 
 ### `POST /detect` 
-`multipart/form-data` with field `photos`, repeated 1 to 3 times. Accepts JPG, PNG and HEIC, up to 10 MB each. Photos are processed in memory and never stored (NFR6).
+`multipart/form-data` with field `photos`, repeated 1 to 5 times. Accepts JPG, PNG and HEIC, up to 15 MB each. The website shrinks photos to 2048 px JPEG before upload when the browser can read them. Photos are processed in memory and never stored (NFR6).
 
 Response `200`:
 ```json
@@ -150,18 +172,21 @@ Response `200`:
 - `ingredients` is the merged list across all photos with no duplicates (FR4). `confidence` is the highest seen and `count` is the number of boxes.
 - `ask_about_staples` lists staples that were not detected (FR5).
 - A photo with no ingredients returns `"detections": []`; this is not an error.
+- Each photo also has `sharpness` (edge sharpness) and `blurry` (true below 25). The app then suggests retaking that photo.
 
 ## 5. Recipe chef (FR6–FR10)
 
 The app keeps the confirmed ingredient list and sends it with each chef request. The server keeps recipe options for 2 hours so they can be referred to by id.
 
 ### `GET /chef/questions`
-The chef's tap-to-answer questions (FR6). The app shows them one at a time and also allows free text.
+The chef's tap-to-answer questions (FR6). The app shows them one at a time. Any typed answer is accepted, e.g. "Pakistani"; time and people need a number. Cuisines the recipe search doesn't know are mapped to the closest one (Pakistani → Indian) or left for Gemini. After the last question the app asks "Anything else the chef should keep in mind?" (Yes opens a text box; No shows recipes) and sends the text as `answers.note`.
 ```json
 {
   "questions": [
     { "key": "cuisine", "text": "What kind of food are you in the mood for?",
-      "options": ["Any", "Italian", "Indian", "Asian", "Middle Eastern", "Mexican"] },
+      "options": ["Any", "Italian", "Indian", "Pakistani", "Asian", "Middle Eastern", "Mexican"] },
+    { "key": "meal_type", "text": "What are you making?",
+      "options": ["Main course", "Dessert", "Breakfast", "Snack", "Side dish", "Any"] },
     { "key": "mood", "text": "How are you feeling?",
       "options": ["Something quick", "Comfort food", "Something healthy", "Something new"] },
     { "key": "max_minutes", "text": "How much time do you have?",
@@ -182,6 +207,7 @@ The chef's tap-to-answer questions (FR6). The app shows them one at a time and a
   ],
   "answers": {
     "cuisine": "Any",
+    "meal_type": "Main course",
     "mood": "Something quick",
     "max_minutes": 30,
     "servings": 3,
@@ -207,6 +233,7 @@ Response `200` with at least 3 options (FR7), no quantities yet:
     }
   ],
   "removed_by_safety_filter": 1,
+  "removed_by_your_notes": 0,
   "notice": null
 }
 ```
@@ -230,7 +257,7 @@ Response `200`, scaled to `servings` (FR8):
     { "name": "Eggs", "quantity": 8, "unit": "", "have": true },
     { "name": "Tomato", "quantity": 5, "unit": "", "have": true },
     { "name": "Onion", "quantity": 1, "unit": "", "have": false },
-    { "name": "Salt", "quantity": 1, "unit": "tsp", "have": true }
+    { "name": "salt", "quantity": 1, "unit": "tsp", "have": true, "note": "Suggested amount for 4 servings; adjust to taste." }
   ],
   "steps": [
     "Dice the onion and tomatoes.",

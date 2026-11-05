@@ -21,6 +21,36 @@ INTOLERANCES = {
 }
 DIETS = {"vegetarian": "vegetarian", "vegan": "vegan", "pescatarian": "pescetarian"}  # no halal option
 
+# Cuisines Spoonacular can filter by. Others are mapped to the closest one when it is a fair
+# match, or left for Gemini to honour when it picks or writes recipes.
+CUISINES = {c.lower(): c for c in [
+    "African", "Asian", "American", "British", "Cajun", "Caribbean", "Chinese", "Eastern European",
+    "European", "French", "German", "Greek", "Indian", "Irish", "Italian", "Japanese", "Jewish",
+    "Korean", "Latin American", "Mediterranean", "Mexican", "Middle Eastern", "Nordic", "Southern",
+    "Spanish", "Thai", "Vietnamese"]}
+CLOSE_CUISINES = {
+    "pakistani": "Indian", "bangladeshi": "Indian", "sri lankan": "Indian", "nepali": "Indian", "desi": "Indian",
+    "persian": "Middle Eastern", "iranian": "Middle Eastern", "lebanese": "Middle Eastern", "turkish": "Middle Eastern",
+    "arabic": "Middle Eastern", "arab": "Middle Eastern", "emirati": "Middle Eastern", "afghan": "Middle Eastern",
+    "moroccan": "African", "ethiopian": "African", "nigerian": "African",
+    "filipino": "Asian", "indonesian": "Asian", "malaysian": "Asian", "singaporean": "Asian",
+    "portuguese": "European", "polish": "Eastern European", "russian": "Eastern European",
+    "brazilian": "Latin American", "peruvian": "Latin American", "colombian": "Latin American",
+}
+MEAL_TYPES = {"main course": "main course", "main": "main course", "dinner": "main course", "lunch": "main course",
+              "dessert": "dessert", "sweet": "dessert", "breakfast": "breakfast", "snack": "snack",
+              "side dish": "side dish", "side": "side dish", "soup": "soup", "salad": "salad", "drink": "drink"}
+
+
+def spoonacular_cuisine(text: str | None) -> str | None:
+    t = (text or "").strip().lower()
+    return CUISINES.get(t) or CLOSE_CUISINES.get(t)
+
+
+def spoonacular_meal_type(text: str | None) -> str | None:
+    t = (text or "").strip().lower()
+    return MEAL_TYPES.get(t) or next((v for k, v in MEAL_TYPES.items() if k in t.split()), None)
+
 
 class SpoonacularUnavailable(Exception):
     """Out of daily points, no key, or the service failed. The chef falls back to Gemini."""
@@ -49,7 +79,7 @@ def _get(path: str, params: dict) -> dict | list:
 
 
 def search(ingredients: list[str], allergies: list[str], diet: str, cuisine: str | None,
-           max_minutes: int | None, number: int = 10) -> list[dict]:
+           max_minutes: int | None, number: int = 10, meal_type: str | None = None) -> list[dict]:
     """Recipes that use the most of the given ingredients, already filtered by Spoonacular."""
     params = {
         "includeIngredients": ",".join(sorted(ingredients)),
@@ -64,8 +94,10 @@ def search(ingredients: list[str], allergies: list[str], diet: str, cuisine: str
         params["intolerances"] = ",".join(sorted(intolerances))
     if diet in DIETS:
         params["diet"] = DIETS[diet]
-    if cuisine and cuisine.lower() != "any":
-        params["cuisine"] = cuisine
+    if spoonacular_cuisine(cuisine):
+        params["cuisine"] = spoonacular_cuisine(cuisine)
+    if spoonacular_meal_type(meal_type):
+        params["type"] = spoonacular_meal_type(meal_type)
     if max_minutes:
         params["maxReadyTime"] = max_minutes
     results = _get("/recipes/complexSearch", params).get("results", [])

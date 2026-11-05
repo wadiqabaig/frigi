@@ -12,7 +12,10 @@ export function answerLabel(key: string, value: string) {
   return value
 }
 
-/** Match typed text to one of the question's options, or a number for numeric questions. */
+/**
+ * Turns typed text into an answer. Numeric questions need a number; every other question takes
+ * the matching option, or the typed words themselves (e.g. "Pakistani"). Null means "ask again".
+ */
 export function parseAnswer(q: ChefQuestion, raw: string): string | null {
   const t = normalize(raw)
   if (!t) return null
@@ -24,13 +27,15 @@ export function parseAnswer(q: ChefQuestion, raw: string): string | null {
     return n >= 1 && n <= 20 ? String(n) : null
   }
   const opts = q.options.map((o) => ({ o, n: normalize(o) }))
-  return (opts.find((x) => x.n === t) ?? opts.find((x) => t.includes(x.n) || (t.length >= 3 && x.n.includes(t))))?.o ?? null
+  const match = (opts.find((x) => x.n === t) ?? opts.find((x) => t.includes(x.n) || (t.length >= 3 && x.n.includes(t))))?.o
+  return match ?? raw.trim().replace(/\s+/g, ' ').slice(0, 50)
 }
 
 // Turns the answers collected in the chat into the typed request for /chef/options.
 export function toChefAnswers(raw: Record<string, string>, note: string): ChefAnswers {
   return {
     cuisine: raw.cuisine,
+    mealType: raw.meal_type,
     mood: raw.mood,
     maxMinutes: raw.max_minutes ? Number(raw.max_minutes) : undefined,
     servings: raw.servings ? Number(raw.servings) : undefined,
