@@ -81,9 +81,10 @@ export function Welcome() {
             <motion.p initial={reduce ? false : { opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.16 }} className="mx-auto mt-5 max-w-md text-[17px] leading-relaxed text-brown-70 lg:mx-0">
               Snap a photo of your fridge. Frigi recognises your ingredients, asks what you’re craving, and suggests recipes you can cook right now.
             </motion.p>
-            <motion.div initial={reduce ? false : { opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.24 }} className="mx-auto mt-8 flex max-w-sm flex-col gap-3 sm:max-w-none sm:flex-row sm:justify-center lg:justify-start">
-              <Button size="lg" onClick={() => go('signup')} iconRight={<ArrowRight size={18} />}>Get Started</Button>
-              <Button size="lg" variant="light" onClick={() => go('login')}>I have an account</Button>
+            <motion.div initial={reduce ? false : { opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.24 }} className="mx-auto mt-8 flex max-w-sm flex-col items-center gap-3 lg:mx-0 lg:items-start">
+              <Button size="lg" className="w-full sm:w-auto" onClick={() => go('signup')} iconRight={<ArrowRight size={18} />}>Create a free account</Button>
+              <p className="text-sm text-brown-70">New here? It takes about a minute and keeps your allergies and diet safe.</p>
+              <p className="text-sm text-brown-70">Already have an account? <button onClick={() => go('login')} className="font-bold text-red underline-offset-2 hover:underline">Log in</button></p>
             </motion.div>
           </div>
         </div>

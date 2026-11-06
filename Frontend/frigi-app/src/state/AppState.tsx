@@ -155,9 +155,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
         else if (inventory.length) api.saveInventory(inventory).catch(() => undefined)
       })
       .catch(() => undefined)
+    api.getSaved()
+      .then((list) => {
+        if (list.length) setSavedFromServer(list)
+        else if (savedRef.current.length) api.saveSaved(savedRef.current).catch(() => undefined)
+      })
+      .catch(() => undefined)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile?.id])
   const [saved, setSaved] = useUserStore<SavedRecipe[]>('saved', uid, NO_SAVED)
+  const savedRef = useRef(saved)
+  savedRef.current = saved
+  const setSavedFromServer = setSaved
   const [chefRaw, setChef] = useUserStore<ChefSession | null>('chef', uid, null, 'session')
   const [recipes, setRecipes] = useUserStore<Record<string, Recipe>>('recipes', uid, NO_RECIPES, 'session')
   const chef = fresh(chefRaw)
@@ -279,7 +288,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // Saves or unsaves a recipe; returns true when it is now saved.
   const toggleSaved = useCallback((r: Recipe) => {
     const now = !saved.some((s) => sameRecipe(s, r))
-    setSaved((list) => (now ? [{ ...r, savedAt: Date.now() }, ...list.filter((s) => !sameRecipe(s, r))] : list.filter((s) => !sameRecipe(s, r))))
+    const next = now ? [{ ...r, savedAt: Date.now() }, ...saved.filter((s) => !sameRecipe(s, r))] : saved.filter((s) => !sameRecipe(s, r))
+    setSaved(next)
+    // Also saved on the server, so other devices see the same list.
+    api.saveSaved(next).catch(() => undefined)
     return now
   }, [saved, setSaved])
 

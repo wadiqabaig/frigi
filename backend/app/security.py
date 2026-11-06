@@ -72,7 +72,8 @@ def user_for_cognito(claims: dict, db: Session) -> User:
         user = db.query(User).filter(User.email == email).first()
         if user is None:
             user = User(name=(claims.get("name") or email.split("@")[0])[:100], email=email, password_hash="",
-                        allergies=[], diet="none", household_size=1, chef_notes=[], inventory=[])
+                        allergies=[], diet="none", household_size=1, chef_notes=[], inventory=[],
+                        saved_recipes=[], recipe_notes=[])
             db.add(user)
         user.cognito_sub = sub
         try:

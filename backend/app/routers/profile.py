@@ -7,7 +7,8 @@ from sqlalchemy.orm import Session
 from ..database import get_db
 from ..errors import ApiError
 from ..models import User
-from ..schemas import InventoryIn, InventoryOut, Note, NoteIn, ProfileOut, ProfileUpdate
+from ..schemas import InventoryIn, InventoryOut, Note, NoteIn, ProfileOut, ProfileUpdate, RecipeNoteIn, RecipeNoteOut, SavedIn
+from ..services.chef import disliked_terms
 from ..security import current_user
 
 router = APIRouter(prefix="/profile", tags=["accounts"])
@@ -47,6 +48,51 @@ def save_inventory(body: InventoryIn, user: User = Depends(current_user), db: Se
     user.inventory = [item.model_dump() for item in body.items]
     db.commit()
     return {"items": user.inventory}
+
+
+@router.get("/saved")
+def get_saved(user: User = Depends(current_user)):
+    """Saved recipe snapshots, shared by all of the user's devices."""
+    return {"recipes": user.saved_recipes or []}
+
+
+@router.put("/saved")
+def save_saved(body: SavedIn, user: User = Depends(current_user), db: Session = Depends(get_db)):
+    user.saved_recipes = body.recipes
+    db.commit()
+    return {"recipes": user.saved_recipes}
+
+
+def recipe_key(title: str) -> str:
+    return " ".join(title.lower().split())
+
+
+@router.post("/recipe-notes", response_model=RecipeNoteOut, status_code=201)
+def add_recipe_note(body: RecipeNoteIn, user: User = Depends(current_user), db: Session = Depends(get_db)):
+    """A note for one recipe. Notes such as "no eggs" are also saved as a general note for every recipe."""
+    now = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    text = body.text.strip()
+    note = {"id": secrets.token_hex(4), "recipe_key": recipe_key(body.recipe_title), "recipe_title": body.recipe_title.strip(),
+            "text": text, "created_at": now}
+    user.recipe_notes = (list(user.recipe_notes or []) + [note])[-200:]
+    general = None
+    notes = list(user.chef_notes or [])
+    if disliked_terms([text]) and len(notes) < MAX_NOTES and not any(n["text"].lower() == text.lower() for n in notes):
+        general = {"id": secrets.token_hex(4), "text": text, "created_at": now}
+        user.chef_notes = notes + [general]
+    db.commit()
+    return {"note": note, "general_note": general}
+
+
+@router.delete("/recipe-notes/{note_id}", status_code=204)
+def delete_recipe_note(note_id: str, user: User = Depends(current_user), db: Session = Depends(get_db)):
+    notes = list(user.recipe_notes or [])
+    kept = [n for n in notes if n["id"] != note_id]
+    if len(kept) == len(notes):
+        raise ApiError(404, "NOT_FOUND", "That note no longer exists.")
+    user.recipe_notes = kept
+    db.commit()
+    return Response(status_code=204)
 
 
 @router.post("/notes", response_model=Note, status_code=201)

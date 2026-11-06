@@ -74,9 +74,9 @@ export function Shell({ children }: { children: ReactNode }) {
                 className="relative flex flex-1 flex-col items-center gap-0.5 py-1"
               >
                 {center ? (
-                  <motion.span whileTap={{ scale: 0.9 }} className={cx('-mt-7 grid h-14 w-14 place-items-center rounded-full border-4 border-paper text-white shadow-red', on ? 'bg-red-600' : 'bg-red')}>
-                    <n.icon size={24} strokeWidth={2.5} />
-                  </motion.span>
+                  <span className={cx('relative grid h-10 w-12 place-items-center rounded-2xl transition-colors', on ? 'bg-red text-white' : 'bg-red-50 text-red')}>
+                    <n.icon size={21} strokeWidth={2.4} />
+                  </span>
                 ) : (
                   <span className={cx('relative grid h-10 w-12 place-items-center rounded-2xl transition-colors', on ? 'text-red' : 'text-brown-50')}>
                     {on && <motion.span layoutId="bot-pill" className="absolute inset-0 rounded-2xl bg-red-50" transition={{ type: 'spring', stiffness: 400, damping: 32 }} />}
@@ -116,21 +116,25 @@ const STEPS: { key: ScreenName[]; label: string }[] = [
   { key: ['chef'], label: 'Chat' },
   { key: ['recipes', 'recipe'], label: 'Cook' },
 ]
-// Scan → Confirm → Chat → Cook progress pills.
+// Scan → Confirm → Chat → Cook progress: numbered steps with labels and a filled bar.
 export function JourneySteps() {
   const { route } = useApp()
   const idx = STEPS.findIndex((s) => s.key.includes(route.name))
+  const pct = idx < 0 ? 0 : (idx / (STEPS.length - 1)) * 100
   return (
-    <ol className="flex items-center gap-1.5" aria-label="Your progress">
-      {STEPS.map((s, i) => (
-        <li key={s.label} className="flex items-center gap-1.5" aria-current={i === idx ? 'step' : undefined}>
-          <span className={cx('flex h-7 items-center gap-1.5 rounded-full px-2.5 text-xs font-bold transition-colors', i < idx ? 'bg-sun-50 text-sun-700' : i === idx ? 'bg-red text-white' : 'bg-cream-50 text-brown-50')}>
-            <span className={cx('grid h-4 w-4 place-items-center rounded-full text-[10px]', i === idx ? 'bg-white/25' : 'bg-white')}>{i + 1}</span>
-            <span className={cx(i === idx ? 'inline' : 'hidden sm:inline')}>{s.label}</span>
-          </span>
-          {i < STEPS.length - 1 && <span className={cx('h-0.5 w-3 rounded-full sm:w-5', i < idx ? 'bg-sun' : 'bg-cream')} aria-hidden />}
-        </li>
-      ))}
-    </ol>
+    <div className="min-w-0 flex-1 sm:max-w-md" aria-label={`Step ${idx + 1} of ${STEPS.length}: ${STEPS[idx]?.label ?? ''}`}>
+      <ol className="relative flex items-start justify-between">
+        <span aria-hidden className="absolute left-4 right-4 top-4 h-1 rounded-full bg-cream" />
+        <motion.span aria-hidden className="absolute left-4 top-4 h-1 rounded-full bg-red" initial={false} animate={{ width: `calc((100% - 2rem) * ${pct / 100})` }} transition={{ duration: 0.4 }} />
+        {STEPS.map((s, i) => (
+          <li key={s.label} className="relative flex flex-col items-center gap-1" aria-current={i === idx ? 'step' : undefined}>
+            <span className={cx('grid h-8 w-8 place-items-center rounded-full text-sm font-extrabold ring-4 ring-paper transition-colors', i < idx ? 'bg-red text-white' : i === idx ? 'bg-red text-white shadow-red' : 'bg-white text-brown-50')}>
+              {i < idx ? '✓' : i + 1}
+            </span>
+            <span className={cx('text-[11px] font-bold', i <= idx ? 'text-brown' : 'text-brown-50')}>{s.label}</span>
+          </li>
+        ))}
+      </ol>
+    </div>
   )
 }

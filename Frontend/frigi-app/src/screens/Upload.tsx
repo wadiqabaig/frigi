@@ -7,6 +7,7 @@ import { Button, IconButton, Mascot } from '../components/ui'
 import { cx } from '../lib/format'
 import { useApp, type Photo } from '../state/AppState'
 
+import { PhoneQr, hasTouchCamera } from '../components/PhoneQr'
 import { preparePhoto } from '../lib/photo'
 
 // Limit from docs/api-contract.md, POST /detect.
@@ -19,6 +20,7 @@ type Notice = { kind: 'too-many' | 'bad-format'; text: string } | null
 // Choose or take up to five fridge photos.
 export function Upload() {
   const { photos, setPhotos, go, back } = useApp()
+  const [touch] = useState(hasTouchCamera)
   const [notice, setNotice] = useState<Notice>(null)
   const [drag, setDrag] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
@@ -77,7 +79,7 @@ export function Upload() {
   return (
     <div>
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3 pr-12 lg:pr-0">
-        <div className="flex items-center gap-3">
+        <div className="flex min-w-0 flex-1 basis-[280px] items-center gap-3">
           <IconButton label="Back" onClick={back}><ArrowLeft size={20} /></IconButton>
           <JourneySteps />
         </div>
@@ -103,12 +105,13 @@ export function Upload() {
             <p className="mt-1 text-sm text-brown-70">{preparing ? 'Getting your photos ready…' : `JPG, PNG or HEIC · ${photos.length}/${MAX} added`}</p>
             <div className="mt-5 flex flex-col justify-center gap-2.5 sm:flex-row">
               <Button onClick={() => fileRef.current?.click()} icon={<UploadIcon size={18} />} disabled={photos.length >= MAX || preparing}>Choose photos</Button>
-              <Button variant="secondary" onClick={() => camRef.current?.click()} icon={<Camera size={18} />} disabled={photos.length >= MAX || preparing}>Take a photo</Button>
+              {touch && <Button variant="secondary" onClick={() => camRef.current?.click()} icon={<Camera size={18} />} disabled={photos.length >= MAX || preparing}>Take a photo</Button>}
             </div>
             <input ref={fileRef} id="up-files" type="file" multiple accept={ACCEPT} className="sr-only" onChange={(e) => { void addFiles(e.target.files); e.target.value = '' }} aria-label="Choose fridge photos" />
             <input ref={camRef} id="up-cam" type="file" accept="image/*" capture="environment" className="sr-only" onChange={(e) => { void addFiles(e.target.files); e.target.value = '' }} aria-label="Take a fridge photo" />
             <input ref={replaceRef} id="up-replace" type="file" accept={ACCEPT} className="sr-only" onChange={(e) => { void replace(replaceIdx.current, e.target.files?.[0]); e.target.value = '' }} aria-label="Replace photo" />
           </motion.div>
+          {!touch && <PhoneQr />}
 
           {/* Notices */}
           <AnimatePresence>
