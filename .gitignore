@@ -21,9 +21,8 @@ venv/
 .pytest_cache/
 *.egg-info/
 
-# Node / Expo (app/)
+# Node
 node_modules/
-.expo/
 dist/
 web-build/
 
@@ -37,3 +36,6 @@ __MACOSX/
 *.db
 backend/weights/
 backend/cache/
+
+# Stray local copy of this repository inside it
+/frigi/

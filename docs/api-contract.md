@@ -1,6 +1,6 @@
 # Frigi API contract
 
-Version 1.0 — 13 Oct 2026. This is the agreement between the app (`app/`) and the backend (`backend/`). If either side needs a change, update this file in a Pull Request first, then change the code.
+Version 1.0 — 13 Oct 2026. This is the agreement between the website (`Frontend/frigi-app/`) and the backend (`backend/`). If either side needs a change, update this file in a Pull Request first, then change the code.
 
 ## Basics
 
@@ -304,4 +304,4 @@ Response `200`:
 
 ## 7. Building the app before the backend is ready
 
-Use the example responses in this file as fake data. Keep every API call in one file (for example `app/src/api.ts`) with a `USE_MOCK` switch, so changing to the real server later is a one-line change.
+Use the example responses in this file as fake data. Keep every API call in one file (the website uses `Frontend/frigi-app/src/lib/api.ts`) with a `USE_MOCK` switch, so changing to the real server later is a one-line change.
