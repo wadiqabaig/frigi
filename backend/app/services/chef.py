@@ -78,6 +78,33 @@ def nice_quantity(value: float) -> float:
     return round(value * 4) / 4 or 0.25
 
 
+# Foods the user asks for in the chat note, e.g. "I want something with rice" -> "rice".
+WANT = re.compile(r"(?=\b(?:with|using|use|want|wants|including|include|craving|add|have)\s+(?:up\s+)?(?:some\s+|a\s+|an\s+|the\s+)?([a-z][a-z'-]*(?:\s+[a-z][a-z'-]*){0,4}))")
+NOT_FOODS = {"something", "anything", "food", "dish", "recipe", "recipes", "meal", "it", "to", "me", "more", "less",
+             "spicy", "quick", "healthy", "light", "kids", "friends", "family", "time", "leftovers", "some"}
+
+
+def wanted_terms(note: str | None) -> list[str]:
+    """Foods a chat note asks for, to search for and to require in the recipes.
+
+    "I want something with rice" -> ["rice"]; "with chicken and rice" -> ["chicken", "rice"].
+    """
+    terms = []
+    for match in WANT.finditer((note or "").lower()):
+        for part in re.split(r"\s+(?:and|or|&)\s+|,", match.group(1)):
+            words = []
+            for word in part.split():
+                if word in STOP_WORDS or word in NOT_FOODS:
+                    break
+                words.append(word)
+            food = " ".join(words[:2]).strip(" -'")
+            if len(food) > 2:
+                terms.append(food)
+            if not words:
+                break
+    return list(dict.fromkeys(terms))
+
+
 def note_texts(user: User) -> list[str]:
     return [n["text"] for n in (user.chef_notes or [])][-10:]
 
@@ -142,6 +169,11 @@ def options(user: User, ingredients: list[dict], answers: dict) -> dict:
     use_spoonacular = get_settings().chef_source != "llm"
     notes = note_texts(user)
     dislikes = disliked_terms(notes)
+    # "Something with rice" in this chat's note: search for rice too, and only offer recipes that use it.
+    wanted = [w for w in wanted_terms(answers.get("note")) if w not in dislikes]
+    if wanted:
+        terms = list(dict.fromkeys(terms + wanted))
+        answers = {**answers, "must_include": ", ".join(wanted)}
 
     chosen: list[dict] = []
     removed = 0
@@ -161,6 +193,11 @@ def options(user: User, ingredients: list[dict], answers: dict) -> dict:
                     removed_by_notes += 1
                 else:
                     safe.append(c)
+            if wanted:
+                matching = [c for c in safe if mentions([c["title"], *c["ingredient_names"]], wanted)]
+                if not matching and safe:
+                    notice = f"No library recipes used {', '.join(wanted)}, so the chef wrote these."
+                safe = matching
             if safe:
                 try:
                     picks = llm.pick_options(safe, answers, allergies, diet, notes=notes)

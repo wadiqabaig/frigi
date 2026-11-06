@@ -126,7 +126,8 @@ def generate_options(ingredients: list[str], answers: dict, allergies: list[str]
     prompt = (
         f"Ingredients the user has: {', '.join(ingredients)}.\n"
         f"The user answered: {_answers_line(answers)}.\n{_profile_line(allergies, diet, notes)}\n\n"
-        f"Write {count} different recipes that mainly use these ingredients and match the cuisine and meal type asked for. Common pantry items "
+        f"Write {count} different recipes that mainly use these ingredients and match the cuisine and meal type asked for. "
+        f"If must_include is given, every recipe must use those foods. Common pantry items "
         f"(salt, pepper, oil, water) may be added. Give quantities for the number of servings you state, "
         f"using units such as g, ml, tsp, tbsp, cup or an empty unit for whole items. Always give an exact amount of salt "
         f"if the dish uses salt. Steps must be short."
