@@ -1,11 +1,11 @@
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { ArrowLeft, ArrowRight, Bookmark, Home, Pause, Play, RotateCcw, Timer, X } from 'lucide-react'
-import { useCallback, useEffect, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { ICONS } from '../assets'
 import { IngredientIcon } from '../components/IngredientIcon'
 import { Button, IconButton, Mascot } from '../components/ui'
+import { RecipeNotes } from '../components/RecipeNotes'
 import { useRecipeRows } from '../hooks/useRecipeRows'
-import { api, errorMessage } from '../lib/api'
 import { cx } from '../lib/format'
 import { stepMinutes } from '../lib/recipes'
 import { words } from '../lib/text'
@@ -71,7 +71,11 @@ export function Cook() {
   const prev = useCallback(() => { if (i > 0) { setDir(-1); setI(i - 1) } }, [i])
 
   useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => { if (e.key === 'ArrowRight') next(); if (e.key === 'ArrowLeft') prev() }
+    const onKeyDown = (e: KeyboardEvent) => {
+      // Arrow keys move between steps, except while typing a note.
+      if ((e.target as HTMLElement)?.closest?.('input, textarea')) return
+      if (e.key === 'ArrowRight') next(); if (e.key === 'ArrowLeft') prev()
+    }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [next, prev])
@@ -144,6 +148,7 @@ export function Cook() {
               )}
             </motion.section>
           </AnimatePresence>
+          <RecipeNotes recipeTitle={recipe.title} step={i + 1} compact className="mt-6 max-w-2xl" />
         </div>
         <div className="order-first flex justify-center lg:order-none">
           <div className="relative w-[150px] sm:w-[230px]">
@@ -165,28 +170,10 @@ const CONFETTI = ['#E5332A', '#FEB506', '#3E8E4E', '#F2E5D3', '#FF8A5B']
 
 // Celebration screen after the last step, with an option to save the recipe.
 export function Done() {
-  const { go, isSaved, toggleSaved, notify, profile, setProfile } = useApp()
+  const { go, isSaved, toggleSaved, notify } = useApp()
   const recipe = useCookRecipe()
   const reduce = useReducedMotion()
   const saved = recipe && isSaved(recipe)
-  const [note, setNote] = useState('')
-  const [noteState, setNoteState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
-  const [noteError, setNoteError] = useState('')
-
-  // Saves something to change next time; the chef reads these notes on future requests.
-  const saveNote = async (e: FormEvent) => {
-    e.preventDefault()
-    const text = note.trim()
-    if (!text) return
-    setNoteState('saving'); setNoteError('')
-    try {
-      const added = await api.addNote(recipe ? `${text} (after ${recipe.title})`.slice(0, 300) : text)
-      if (profile) setProfile({ ...profile, chefNotes: [...profile.chefNotes, added] })
-      setNote(''); setNoteState('saved')
-    } catch (err) {
-      setNoteState('error'); setNoteError(errorMessage(err, 'Couldn’t save your note. Please try again.'))
-    }
-  }
   return (
     <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-paper p-6">
       {!reduce && Array.from({ length: 34 }).map((_, k) => (
@@ -209,16 +196,13 @@ export function Done() {
         </div>
         <motion.h1 initial={reduce ? false : { opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }} className="mt-6 font-display text-[40px] font-semibold leading-tight text-brown">Chef’s kiss! You did it!</motion.h1>
         <p className="mt-2 text-[16px] text-brown-70">{recipe ? `${recipe.title} is ready. Time to eat and enjoy every bite.` : 'Time to eat!'}</p>
-        <form onSubmit={saveNote} className="mt-6 w-full rounded-4xl bg-white/90 p-4 text-left shadow-soft">
-          <label htmlFor="done-note" className="font-display text-lg font-semibold text-brown">Anything you’d change next time?</label>
-          <p className="text-xs text-brown-70">Frigi remembers this for future recipes, e.g. “less spicy” or “no mushrooms”. You can delete notes in your profile.</p>
-          <div className="mt-3 flex gap-2">
-            <input id="done-note" value={note} onChange={(e) => { setNote(e.target.value); if (noteState !== 'saving') setNoteState('idle') }} maxLength={200} placeholder="Type a note…" className="h-11 min-w-0 flex-1 rounded-full bg-cream-50 px-4 text-[15px] text-brown placeholder:text-brown-50 focus:outline-none focus:ring-2 focus:ring-red" />
-            <Button type="submit" size="sm" disabled={!note.trim() || noteState === 'saving'}>{noteState === 'saving' ? 'Saving…' : 'Save'}</Button>
+        {recipe ? (
+          <div className="mt-6 w-full text-left">
+            <p className="mb-2 text-center font-display text-lg font-semibold text-brown">Anything you’d change next time?</p>
+            <RecipeNotes recipeTitle={recipe.title} compact className="bg-white/90 shadow-soft" />
+            <p className="mt-2 text-center text-xs text-brown-70">Frigi shows this note next time you cook {recipe.title}. Notes like “no eggs” apply to every recipe.</p>
           </div>
-          {noteState === 'saved' && <p role="status" className="mt-2 text-sm font-bold text-leaf">Saved. The chef will keep it in mind.</p>}
-          {noteState === 'error' && <p role="alert" className="mt-2 text-sm font-bold text-red-600">{noteError}</p>}
-        </form>
+        ) : null}
         <div className="mt-5 flex w-full flex-col gap-2.5 sm:flex-row sm:justify-center">
           <Button size="lg" onClick={() => go('home')} icon={<Home size={18} />}>Return home</Button>
           {recipe && <Button size="lg" variant={saved ? 'secondary' : 'sun'} icon={<Bookmark size={18} className={saved ? 'fill-current' : ''} />} onClick={() => { const now = toggleSaved(recipe); notify(now ? 'Saved to your recipes' : 'Removed from saved') }}>{saved ? 'Saved' : 'Save recipe'}</Button>}

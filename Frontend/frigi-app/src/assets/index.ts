@@ -17,6 +17,10 @@ import iHen from './img/icon-hen.webp'
 import iKnife from './img/icon-knife.webp'
 import iOnion from './img/icon-onion.webp'
 import iWhisk from './img/icon-whisker.webp'
+import avatar from './img/frigi-avatar.webp'
+
+// Round picture of Frigi used beside chat messages.
+export const AVATAR = avatar
 
 // Supplied Frigi brand assets. The "animated-*" scenes were cut out from their
 // yellow backgrounds so Frigi can float on any surface; motion is added in CSS/Framer.

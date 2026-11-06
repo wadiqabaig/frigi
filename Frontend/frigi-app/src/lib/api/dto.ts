@@ -27,7 +27,10 @@ export interface ProfileDto {
   diet: string
   household_size: number
   chef_notes?: NoteDto[]
+  recipe_notes?: RecipeNoteDto[]
 }
+
+export interface RecipeNoteDto { id: string; recipe_key: string; recipe_title: string; text: string; created_at: string }
 
 export type ProfileUpdateDto = Partial<Pick<ProfileDto, 'name' | 'age' | 'allergies' | 'diet' | 'household_size'>>
 

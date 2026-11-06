@@ -5,6 +5,7 @@ import { IngredientIcon } from '../components/IngredientIcon'
 import { Stepper } from '../components/Pickers'
 import { SOURCE_LABEL, SaveHeart } from '../components/RecipeCard'
 import { RecipeImage } from '../components/RecipeImage'
+import { RecipeNotes } from '../components/RecipeNotes'
 import { SwapSheet } from '../components/SwapSheet'
 import { Button, IconButton, Mascot, Pill } from '../components/ui'
 import { useDebouncedValue } from '../hooks/useDebouncedValue'
@@ -217,6 +218,7 @@ export function RecipeDetail() {
           <div className="mt-5 space-y-8">
             {ingredientsList}
             {stepsList}
+            <RecipeNotes recipeTitle={recipe.title} />
           </div>
 
           <p className="mt-6 text-center text-xs font-semibold text-brown-50 lg:hidden">{attribution}</p>

@@ -104,7 +104,17 @@ export function Profile() {
     } finally { setNoteBusy(null) }
   }
 
-  // Permanently deletes the account after the user types DELETE.
+  // Removes one recipe note.
+  const removeRecipeNote = async (id: string) => {
+    try {
+      await api.deleteRecipeNote(id)
+      setProfile({ ...profile, recipeNotes: profile.recipeNotes.filter((n) => n.id !== id) })
+    } catch (e) {
+      notify(errorMessage(e, 'Couldn’t delete that note.'))
+    }
+  }
+
+  // Permanently deletes the account after confirmation.
   const removeAccount = async () => {
     setDeleting(true); setDeleteError('')
     try {
@@ -120,17 +130,17 @@ export function Profile() {
     <div className="space-y-6">
       <header className="relative overflow-hidden rounded-5xl bg-cream p-6 sm:p-8">
         <div aria-hidden className="absolute -right-16 -top-16 h-56 w-56 rounded-full bg-sun/30" />
-        <div className="relative flex flex-wrap items-center gap-4 pr-10 lg:pr-0">
-          <span className="grid h-20 w-20 place-items-center rounded-[28px] bg-red font-display text-4xl font-semibold text-white shadow-red">{profile.name.slice(0, 1).toUpperCase()}</span>
+        <div className="relative flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:pr-32">
+          <span className="grid h-20 w-20 shrink-0 place-items-center rounded-[28px] bg-red font-display text-4xl font-semibold text-white shadow-red">{profile.name.slice(0, 1).toUpperCase()}</span>
           <div className="min-w-0 flex-1">
             <h1 className="font-display text-[30px] font-semibold leading-tight text-brown">{profile.name}</h1>
-            <p className="text-sm text-brown-70">{profile.email}{profile.age ? ` · ${profile.age} years` : ''}</p>
+            <p className="break-all text-sm text-brown-70">{profile.email}{profile.age ? ` · ${profile.age} years` : ''}</p>
             <div className="mt-2 flex flex-wrap gap-1.5">
               <Pill tone="white">Household of {profile.householdSize}</Pill>
               <Pill tone="white">Diet: {DIET_LABEL[profile.diet]}</Pill>
             </div>
           </div>
-          {!editing && <Button variant="outline" size="sm" icon={<Pencil size={15} />} onClick={start}>Edit profile</Button>}
+          {!editing && <Button variant="outline" size="sm" icon={<Pencil size={15} />} onClick={start} className="relative z-[1] bg-white">Edit profile</Button>}
         </div>
         <img src={POSES.leaning} alt="" className="absolute -bottom-3 right-6 hidden w-32 sm:block" />
       </header>
@@ -198,23 +208,41 @@ export function Profile() {
           )}
         </section>
 
+        {profile.recipeNotes.length > 0 && (
+          <section aria-labelledby="rnotes-h" className="rounded-5xl bg-white p-5 shadow-soft sm:p-6">
+            <h2 id="rnotes-h" className="font-display text-xl font-semibold text-brown">Recipe notes</h2>
+            <p className="mt-1 text-sm text-brown-70">Shown when you open that recipe again.</p>
+            <ul className="mt-3 space-y-2">
+              {profile.recipeNotes.map((n) => (
+                <li key={n.id} className="flex items-center gap-2 rounded-3xl bg-cream-50 p-2 pl-4">
+                  <span className="min-w-0 flex-1 text-sm text-brown"><span className="font-bold">{n.recipeTitle}:</span> {n.text}</span>
+                  <button onClick={() => removeRecipeNote(n.id)} aria-label={`Delete note for ${n.recipeTitle}: ${n.text}`} className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-brown-50 hover:bg-red-50 hover:text-red"><X size={16} /></button>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+
         <section aria-labelledby="acc-h" className="rounded-5xl bg-white p-5 shadow-soft sm:p-6">
           <h2 id="acc-h" className="font-display text-xl font-semibold text-brown">Account</h2>
           <p className="mt-1 text-sm text-brown-70">Signed in as <span className="font-bold text-brown">{profile.email}</span>.</p>
           <div className="mt-4 flex flex-wrap gap-2">
             <Button size="sm" variant="outline" icon={<LogOut size={15} />} onClick={() => { signOut(); notify('Signed out') }}>Sign out</Button>
-            {!confirmDelete && <Button size="sm" variant="ghost" icon={<Trash2 size={15} />} onClick={() => setConfirmDelete(true)}>Delete account</Button>}
+            <button onClick={() => setConfirmDelete(true)} className="inline-flex h-9 items-center gap-1.5 rounded-full px-3 text-sm font-bold text-red-600 hover:bg-red-50"><Trash2 size={15} /> Delete account</button>
           </div>
           {confirmDelete && (
-            <div role="alert" className="mt-4 rounded-3xl bg-red-50 p-4">
-              <p className="font-bold text-brown">Delete your account permanently?</p>
-              <p className="mt-1 text-sm text-brown-70">This removes your profile, allergies, diet and notes, and saved recipes on this device. It can’t be undone.</p>
-              <label htmlFor="del-confirm" className="mt-3 block text-sm font-bold text-brown">Type DELETE to confirm</label>
-              <input id="del-confirm" className={inputCls + ' mt-1'} value={deleteText} onChange={(e) => setDeleteText(e.target.value)} autoComplete="off" />
-              {deleteError && <p className="mt-2 text-sm font-bold text-red-600">{deleteError}</p>}
-              <div className="mt-3 flex flex-wrap gap-2">
-                <Button size="sm" onClick={removeAccount} disabled={deleteText !== 'DELETE' || deleting} icon={deleting ? <Loader2 size={15} className="animate-spin" /> : <Trash2 size={15} />}>{deleting ? 'Deleting…' : 'Delete my account'}</Button>
-                <Button size="sm" variant="ghost" onClick={() => { setConfirmDelete(false); setDeleteText(''); setDeleteError('') }} disabled={deleting}>Cancel</Button>
+            <div className="fixed inset-0 z-[70] grid place-items-center bg-brown/40 p-4 backdrop-blur-sm" onClick={() => !deleting && setConfirmDelete(false)}>
+              <div role="alertdialog" aria-modal="true" aria-labelledby="del-title" aria-describedby="del-desc" onClick={(e) => e.stopPropagation()} className="w-full max-w-sm rounded-5xl bg-white p-6 text-center shadow-float">
+                <span className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-red-50 text-red"><Trash2 size={28} /></span>
+                <h3 id="del-title" className="mt-4 font-display text-2xl font-semibold text-brown">Delete account</h3>
+                <p id="del-desc" className="mt-2 text-sm text-brown-70">Are you sure? Your profile, allergies, diet, notes, fridge list and saved recipes will be deleted. This can’t be undone.</p>
+                <label htmlFor="del-confirm" className="mt-4 block text-left text-xs font-bold text-brown">Type DELETE to confirm</label>
+                <input id="del-confirm" className={inputCls + ' mt-1'} value={deleteText} onChange={(e) => setDeleteText(e.target.value)} autoComplete="off" autoCapitalize="characters" />
+                {deleteError && <p className="mt-2 text-sm font-bold text-red-600">{deleteError}</p>}
+                <button onClick={removeAccount} disabled={deleteText.trim().toUpperCase() !== 'DELETE' || deleting} className="mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-red-600 font-bold text-white shadow-red transition-opacity hover:brightness-95 disabled:opacity-40">
+                  {deleting ? <Loader2 size={17} className="animate-spin" /> : <Trash2 size={17} />}{deleting ? 'Deleting…' : 'Delete'}
+                </button>
+                <button onClick={() => { setConfirmDelete(false); setDeleteText(''); setDeleteError('') }} disabled={deleting} className="mt-2 h-12 w-full rounded-2xl bg-cream-50 font-bold text-brown hover:bg-cream">Cancel</button>
               </div>
             </div>
           )}

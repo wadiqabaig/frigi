@@ -7,11 +7,11 @@
  */
 import { isAllergen, isDiet } from '../vocab'
 import type {
-  ChefAnswers, ChefNote, ChefQuestion, IngredientRef, InventoryItem, IngredientSearchPage, Profile, Recipe, RecipeOption,
+  ChefAnswers, ChefNote, ChefQuestion, IngredientRef, InventoryItem, RecipeNote, SavedRecipe, IngredientSearchPage, Profile, Recipe, RecipeOption,
   RecipeOptions, ScanResult, SignUpInput, Swap, User,
 } from '../types'
 import type {
-  AuthDto, ChefAnswersDto, ChefQuestionsDto, DetectDto, IngredientsDto, NoteDto, OptionsDto, ProfileDto,
+  AuthDto, ChefAnswersDto, ChefQuestionsDto, DetectDto, IngredientsDto, NoteDto, OptionsDto, ProfileDto, RecipeNoteDto,
   ProfileUpdateDto, RecipeDto, RecipeOptionDto, SwapDto,
 } from './dto'
 import { ApiError, request } from './http'
@@ -33,7 +33,10 @@ const toProfile = (p: ProfileDto): Profile => ({
   diet: isDiet(p.diet) ? p.diet : 'none',
   allergies: p.allergies.filter(isAllergen),
   chefNotes: (p.chef_notes ?? []).map(toNote),
+  recipeNotes: (p.recipe_notes ?? []).map(toRecipeNote),
 })
+
+const toRecipeNote = (n: RecipeNoteDto): RecipeNote => ({ id: n.id, recipeKey: n.recipe_key, recipeTitle: n.recipe_title, text: n.text, createdAt: n.created_at })
 
 const toNote = (n: NoteDto): ChefNote => ({ id: n.id, text: n.text, createdAt: n.created_at })
 
@@ -159,6 +162,27 @@ export const api = {
   async saveInventory(items: InventoryItem[]): Promise<void> {
     const body = { items: items.slice(0, 200).map(({ id, name, confidence, source }) => ({ id, name, confidence: confidence ?? null, source })) }
     await request<unknown>('/profile/inventory', { method: 'PUT', body, auth: true })
+  },
+
+  /** Saved recipes stored on the server, shared by all of the user's devices. */
+  async getSaved(signal?: AbortSignal): Promise<SavedRecipe[]> {
+    return (await request<{ recipes: SavedRecipe[] }>('/profile/saved', { auth: true, signal })).recipes
+  },
+
+  // Replaces the saved recipes on the server.
+  async saveSaved(recipes: SavedRecipe[]): Promise<void> {
+    await request<unknown>('/profile/saved', { method: 'PUT', body: { recipes: recipes.slice(0, 100) }, auth: true })
+  },
+
+  /** A note for one recipe; notes like "no eggs" also come back as a general note for all recipes. */
+  async addRecipeNote(recipeTitle: string, text: string): Promise<{ note: RecipeNote; generalNote: ChefNote | null }> {
+    const r = await request<{ note: RecipeNoteDto; general_note: NoteDto | null }>('/profile/recipe-notes', { method: 'POST', body: { recipe_title: recipeTitle, text }, auth: true })
+    return { note: toRecipeNote(r.note), generalNote: r.general_note ? toNote(r.general_note) : null }
+  },
+
+  // Deletes one recipe note.
+  async deleteRecipeNote(id: string): Promise<void> {
+    await request<null>(`/profile/recipe-notes/${encodeURIComponent(id)}`, { method: 'DELETE', auth: true })
   },
 
   /** Saves a note to change next time, e.g. "less spicy". */

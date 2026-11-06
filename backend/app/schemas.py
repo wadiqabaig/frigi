@@ -37,6 +37,29 @@ class Note(BaseModel):
     created_at: str
 
 
+class RecipeNote(BaseModel):
+    id: str
+    recipe_key: str
+    recipe_title: str
+    text: str
+    created_at: str
+
+
+class RecipeNoteIn(BaseModel):
+    recipe_title: str = Field(min_length=1, max_length=200)
+    text: str = Field(min_length=1, max_length=300)
+
+
+class RecipeNoteOut(BaseModel):
+    note: RecipeNote
+    # Set when the note also applies to every recipe, e.g. "no eggs".
+    general_note: Note | None = None
+
+
+class SavedIn(BaseModel):
+    recipes: list[dict] = Field(max_length=100)
+
+
 class InventoryItem(BaseModel):
     id: str | None = Field(default=None, max_length=60)
     name: str = Field(min_length=1, max_length=80)
@@ -65,8 +88,9 @@ class ProfileOut(BaseModel):
     diet: str
     household_size: int
     chef_notes: list[Note] = []
+    recipe_notes: list[RecipeNote] = []
 
-    @field_validator("allergies", "chef_notes", mode="before")
+    @field_validator("allergies", "chef_notes", "recipe_notes", mode="before")
     @classmethod
     def _none_is_empty(cls, value):
         return value or []

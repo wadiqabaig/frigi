@@ -1,11 +1,11 @@
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { ArrowLeft, ArrowRight, Camera, Info, PencilLine, Pencil, RotateCcw, Send, ShieldCheck, Undo2 } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
-import type { Pose } from '../assets'
+import { AVATAR, type Pose } from '../assets'
 import { Stepper } from '../components/Pickers'
 import { RecipeImage } from '../components/RecipeImage'
 import { JourneySteps } from '../components/Shell'
-import { Button, Chip, IconButton, Mascot, PoseThumb } from '../components/ui'
+import { Button, Chip, IconButton, Mascot } from '../components/ui'
 import { ApiError, api, errorMessage, isAborted } from '../lib/api'
 import { answerLabel, parseAnswer, toChefAnswers } from '../lib/chef'
 import { cx } from '../lib/format'
@@ -215,7 +215,7 @@ export function Chef() {
   return (
     <div className="flex min-h-[calc(100vh-160px)] flex-col lg:min-h-[calc(100vh-72px)]">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3 pr-12 lg:pr-0">
-        <div className="flex items-center gap-3">
+        <div className="flex min-w-0 flex-1 basis-[280px] items-center gap-3">
           <IconButton label="Back" onClick={back}><ArrowLeft size={20} /></IconButton>
           <JourneySteps />
         </div>
@@ -248,10 +248,10 @@ export function Chef() {
         </aside>
 
         {/* Conversation */}
-        <section aria-label="Conversation with Chef Frigi" className="flex min-h-[60vh] min-w-0 flex-col rounded-5xl bg-white/70 shadow-soft lg:h-[calc(100vh-150px)] lg:min-h-[560px]">
+        <section aria-label="Conversation with Chef Frigi" className="flex h-[calc(100dvh-250px)] min-h-[440px] min-w-0 flex-col rounded-5xl bg-white/70 shadow-soft lg:h-[calc(100vh-150px)] lg:min-h-[560px]">
           <div className="flex items-center gap-3 border-b border-cream p-3 lg:hidden">
             <motion.div key={pose} initial={reduce ? false : { scale: 0.7, rotate: -8 }} animate={{ scale: 1, rotate: 0 }} transition={{ type: 'spring', stiffness: 400, damping: 15 }}>
-              <PoseThumb pose={pose} className="h-14 w-14 rounded-2xl bg-sun" zoom={1.15} />
+              <img src={AVATAR} alt="" className="h-12 w-12 rounded-2xl object-cover" />
             </motion.div>
             <div>
               <p className="font-display text-lg font-semibold leading-tight text-brown">Chef Frigi</p>
@@ -276,7 +276,7 @@ export function Chef() {
                 </motion.p>
               ) : m.from === 'frigi' ? (
                 <motion.div key={m.id} initial={reduce ? false : { opacity: 0, x: -24, scale: 0.95 }} animate={{ opacity: 1, x: 0, scale: 1 }} transition={{ type: 'spring', stiffness: 300, damping: 24 }} className="flex items-end gap-2.5">
-                  <PoseThumb pose="main" className="h-9 w-9 rounded-full bg-sun" zoom={1.5} />
+                  <img src={AVATAR} alt="" className="h-9 w-9 shrink-0 rounded-full object-cover shadow-soft" />
                   <div className="max-w-[min(560px,85%)]">
                     <p className={cx('rounded-3xl rounded-bl-md px-4 py-3 text-[15px] leading-relaxed shadow-soft', m.kind === 'error' ? 'bg-red-50 text-red-600' : 'bg-white text-brown')}>{m.text}</p>
                     {m.kind === 'results' && m.id === lastResultsId && result && (
@@ -316,7 +316,7 @@ export function Chef() {
 
             {typing && (
               <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="flex items-end gap-2.5" aria-label={busy ? 'Frigi is finding recipes' : 'Frigi is typing'}>
-                <PoseThumb pose="main" className="h-9 w-9 rounded-full bg-sun" zoom={1.5} />
+                <img src={AVATAR} alt="" className="h-9 w-9 shrink-0 rounded-full object-cover shadow-soft" />
                 <span className="flex items-center gap-1.5 rounded-3xl rounded-bl-md bg-white px-4 py-4 shadow-soft">
                   {[0, 1, 2].map((i) => <motion.span key={i} className="h-2 w-2 rounded-full bg-brown-50" animate={reduce ? {} : { y: [0, -5, 0], opacity: [0.5, 1, 0.5] }} transition={{ duration: 0.9, repeat: Infinity, delay: i * 0.15 }} />)}
                   {busy && <span className="ml-1 text-xs font-semibold text-brown-50">Finding recipes</span>}

@@ -18,7 +18,14 @@ export interface Profile {
   allergies: Allergen[]
   /** Things to change next time, saved after cooking and sent to the chef. */
   chefNotes: ChefNote[]
+  /** Notes tied to one recipe, shown when that recipe is opened again. */
+  recipeNotes: RecipeNote[]
 }
+
+export interface RecipeNote { id: string; recipeKey: string; recipeTitle: string; text: string; createdAt: string }
+
+/** Same key the backend uses for a recipe's notes. */
+export const recipeKey = (title: string) => title.toLowerCase().split(/\s+/).filter(Boolean).join(' ')
 
 export interface ChefNote { id: string; text: string; createdAt: string }
 
