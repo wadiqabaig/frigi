@@ -175,7 +175,7 @@ export function Chef() {
   const addNote = (t: string) => {
     const next = (note ? `${note}; ${t}` : t).slice(0, 200)
     setNote(next)
-    push({ from: 'system', text: `Added to your note for the chef: “${t}”` })
+    push({ from: 'system', text: `Noted for the chef: “${t}”` })
     return next
   }
 
@@ -202,7 +202,9 @@ export function Chef() {
       return
     }
     push({ from: 'user', text: t })
-    addNote(t)
+    const next = addNote(t)
+    // After the recipes are shown, a typed request asks the chef again straight away.
+    if (step === 'done' && questions.every((x) => answers[x.key] !== undefined)) findRecipes(answers, next)
   }
 
   const lastStep = step === 'extra' || step === 'extra-text'
@@ -375,7 +377,7 @@ export function Chef() {
 
           <form onSubmit={submitText} className="flex items-center gap-2 border-t border-cream p-3">
             <label htmlFor="chef-input" className="sr-only">Message Chef Frigi</label>
-            <input id="chef-input" value={text} onChange={(e) => setText(e.target.value)} disabled={!questions || busy} placeholder={step === 'extra-text' ? 'Type what the chef should know…' : step === 'extra' ? 'Type yes or no…' : current ? 'Tap an option or type your own answer' : 'Add a note for the chef…'} maxLength={200} className="h-12 min-w-0 flex-1 rounded-full bg-cream-50 px-5 text-[15px] text-brown placeholder:text-brown-50 focus:outline-none focus:ring-2 focus:ring-red disabled:opacity-60" />
+            <input id="chef-input" value={text} onChange={(e) => setText(e.target.value)} disabled={!questions || busy} placeholder={step === 'extra-text' ? 'e.g. “something with rice” or “no chilli”' : step === 'extra' ? 'Type yes or no…' : current ? (current.key === 'max_minutes' || current.key === 'servings' ? 'Type a number, or tap an option' : 'Type your answer to this question, or tap one') : 'Ask for changes, e.g. “something with rice”'} maxLength={200} className="h-12 min-w-0 flex-1 rounded-full bg-cream-50 px-5 text-[15px] text-brown placeholder:text-brown-50 focus:outline-none focus:ring-2 focus:ring-red disabled:opacity-60" />
             <motion.button whileTap={{ scale: 0.9 }} type="submit" aria-label="Send" disabled={!text.trim() || busy} className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-red text-white shadow-red disabled:opacity-40"><Send size={18} /></motion.button>
           </form>
           <p className="flex items-center justify-center gap-1 px-4 pb-3 text-center text-[11px] font-semibold text-brown-50"><Info size={11} /> Recipes from Spoonacular, picked with Gemini, and checked against your allergies and diet.</p>
