@@ -1,4 +1,4 @@
-import { AnimatePresence, MotionConfig, motion } from 'framer-motion'
+import { MotionConfig, motion } from 'framer-motion'
 import { Shell, Toast } from './components/Shell'
 import { Button, Mascot } from './components/ui'
 import { AppProvider, PageRouteContext, useApp, type StateKind } from './state/AppState'
@@ -67,18 +67,17 @@ function Screen() {
       case 'state': return <StateScreen kind={route.params?.kind as StateKind} />
     }
   })()
+  // Each page fades in. There is no fade-out: waiting for the old page to finish leaving
+  // could stall and leave a blank screen (e.g. chef chat → recipe), so it is removed at once.
   const page = (
-    <AnimatePresence mode="wait" initial={false}>
-      <motion.div
-        key={key}
-        initial={{ opacity: 0, y: 14 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: -8 }}
-        transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
-      >
-        <PageRouteContext.Provider value={route}>{body}</PageRouteContext.Provider>
-      </motion.div>
-    </AnimatePresence>
+    <motion.div
+      key={key}
+      initial={{ opacity: 0, y: 14 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+    >
+      <PageRouteContext.Provider value={route}>{body}</PageRouteContext.Provider>
+    </motion.div>
   )
   const full = FULL.includes(route.name) || (route.name === 'state' && !user)
   return full ? <div className="min-h-full">{page}</div> : <Shell>{page}</Shell>
