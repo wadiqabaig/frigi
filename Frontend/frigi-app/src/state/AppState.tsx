@@ -138,7 +138,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const toastTimer = useRef<number | undefined>(undefined)
 
   const uid = auth?.user.id ?? null
-  const [inventory, setInventory] = useUserStore<InventoryItem[]>('inventory', uid, NO_ITEMS)
+  const [inventory, setInventoryLocal] = useUserStore<InventoryItem[]>('inventory', uid, NO_ITEMS)
+  // Saves the fridge list on this device and on the server, so other devices see it too.
+  const setInventory = useCallback((items: InventoryItem[]) => {
+    setInventoryLocal(items)
+    api.saveInventory(items).catch(() => undefined)
+  }, [setInventoryLocal])
+  // When a profile loads, take the server's fridge list; if the server has none yet, upload this device's.
+  const synced = useRef<number | null>(null)
+  useEffect(() => {
+    if (!profile || synced.current === profile.id) return
+    synced.current = profile.id
+    api.getInventory()
+      .then((items) => {
+        if (items.length) setInventoryLocal(items)
+        else if (inventory.length) api.saveInventory(inventory).catch(() => undefined)
+      })
+      .catch(() => undefined)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile?.id])
   const [saved, setSaved] = useUserStore<SavedRecipe[]>('saved', uid, NO_SAVED)
   const [chefRaw, setChef] = useUserStore<ChefSession | null>('chef', uid, null, 'session')
   const [recipes, setRecipes] = useUserStore<Record<string, Recipe>>('recipes', uid, NO_RECIPES, 'session')
@@ -149,6 +167,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   // Forgets the token, profile and anything tied to the session.
   const clearSession = useCallback(() => {
+    synced.current = null
     remove('auth')
     setAuthToken(null)
     setAuth(null)
