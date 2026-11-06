@@ -37,6 +37,21 @@ class Note(BaseModel):
     created_at: str
 
 
+class InventoryItem(BaseModel):
+    id: str | None = Field(default=None, max_length=60)
+    name: str = Field(min_length=1, max_length=80)
+    confidence: float | None = None
+    source: str = Field(default="manual", max_length=20)
+
+
+class InventoryIn(BaseModel):
+    items: list[InventoryItem] = Field(max_length=200)
+
+
+class InventoryOut(BaseModel):
+    items: list[InventoryItem]
+
+
 class NoteIn(BaseModel):
     text: str = Field(min_length=1, max_length=300)
 

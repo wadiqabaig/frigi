@@ -21,4 +21,6 @@ class User(Base):
     household_size: Mapped[int] = mapped_column(Integer, default=1)
     # Notes the user left after cooking, e.g. "less spicy"; sent to the chef next time.
     chef_notes: Mapped[list[dict]] = mapped_column(JSON, default=list)
+    # The confirmed fridge list, kept on the server so every device sees the same items.
+    inventory: Mapped[list[dict]] = mapped_column(JSON, default=list)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))

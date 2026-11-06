@@ -7,7 +7,7 @@
  */
 import { isAllergen, isDiet } from '../vocab'
 import type {
-  ChefAnswers, ChefNote, ChefQuestion, IngredientRef, IngredientSearchPage, Profile, Recipe, RecipeOption,
+  ChefAnswers, ChefNote, ChefQuestion, IngredientRef, InventoryItem, IngredientSearchPage, Profile, Recipe, RecipeOption,
   RecipeOptions, ScanResult, SignUpInput, Swap, User,
 } from '../types'
 import type {
@@ -148,6 +148,17 @@ export const api = {
   /** Deletes the profile and everything saved with it (the Cognito account is deleted separately). */
   async deleteProfile(): Promise<void> {
     await request<null>('/profile', { method: 'DELETE', auth: true })
+  },
+
+  /** The fridge list saved on the server, shared by all of the user's devices. */
+  async getInventory(signal?: AbortSignal): Promise<InventoryItem[]> {
+    return (await request<{ items: InventoryItem[] }>('/profile/inventory', { auth: true, signal })).items
+  },
+
+  // Replaces the fridge list on the server.
+  async saveInventory(items: InventoryItem[]): Promise<void> {
+    const body = { items: items.slice(0, 200).map(({ id, name, confidence, source }) => ({ id, name, confidence: confidence ?? null, source })) }
+    await request<unknown>('/profile/inventory', { method: 'PUT', body, auth: true })
   },
 
   /** Saves a note to change next time, e.g. "less spicy". */

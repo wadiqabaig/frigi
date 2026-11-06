@@ -20,7 +20,7 @@ def upgrade_schema() -> None:
     """Add columns introduced after the first release. create_all() only creates missing
     tables, so an existing users table needs these added by hand."""
     columns = {c["name"] for c in inspect(engine).get_columns("users")}
-    added = {"cognito_sub": "VARCHAR(64)", "chef_notes": "JSON"}
+    added = {"cognito_sub": "VARCHAR(64)", "chef_notes": "JSON", "inventory": "JSON"}
     with engine.begin() as connection:
         for name, kind in added.items():
             if name not in columns:
@@ -29,6 +29,7 @@ def upgrade_schema() -> None:
             connection.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS ix_users_cognito_sub ON users (cognito_sub)"))
         # Rows created before chef notes existed have NULL; the profile response needs a list.
         connection.execute(text("UPDATE users SET chef_notes = '[]' WHERE chef_notes IS NULL"))
+        connection.execute(text("UPDATE users SET inventory = '[]' WHERE inventory IS NULL"))
         connection.execute(text("UPDATE users SET allergies = '[]' WHERE allergies IS NULL"))
 
 

@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from ..database import get_db
 from ..errors import ApiError
 from ..models import User
-from ..schemas import Note, NoteIn, ProfileOut, ProfileUpdate
+from ..schemas import InventoryIn, InventoryOut, Note, NoteIn, ProfileOut, ProfileUpdate
 from ..security import current_user
 
 router = APIRouter(prefix="/profile", tags=["accounts"])
@@ -34,6 +34,19 @@ def delete_profile(user: User = Depends(current_user), db: Session = Depends(get
     db.delete(user)
     db.commit()
     return Response(status_code=204)
+
+
+@router.get("/inventory", response_model=InventoryOut)
+def get_inventory(user: User = Depends(current_user)):
+    """The confirmed fridge list, shared by all of the user's devices."""
+    return {"items": user.inventory or []}
+
+
+@router.put("/inventory", response_model=InventoryOut)
+def save_inventory(body: InventoryIn, user: User = Depends(current_user), db: Session = Depends(get_db)):
+    user.inventory = [item.model_dump() for item in body.items]
+    db.commit()
+    return {"items": user.inventory}
 
 
 @router.post("/notes", response_model=Note, status_code=201)

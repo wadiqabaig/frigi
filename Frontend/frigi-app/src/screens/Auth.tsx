@@ -48,6 +48,20 @@ type Prefs = { name: string; age: number | null; allergies: Allergen[]; diet: Di
 // Sign-up preferences wait here until the emailed code is confirmed and the first log-in happens.
 const pendingKey = (email: string) => 'pending-profile.' + email.trim().toLowerCase()
 
+// Email fields: no auto-capital, autocorrect or spellcheck, which phones otherwise add.
+const emailInput = { type: 'email', autoCapitalize: 'none', autoCorrect: 'off', spellCheck: false, inputMode: 'email' } as const
+
+// Password field with a show/hide button that is always visible.
+function PasswordInput({ id, value, onChange, autoComplete, describedBy }: { id: string; value: string; onChange: (v: string) => void; autoComplete: string; describedBy?: Record<string, unknown> }) {
+  const [show, setShow] = useState(false)
+  return (
+    <div className="relative">
+      <input id={id} type={show ? 'text' : 'password'} className={inputCls + ' pr-12'} value={value} onChange={(e) => onChange(e.target.value)} autoComplete={autoComplete} autoCapitalize="none" autoCorrect="off" spellCheck={false} {...describedBy} />
+      <button type="button" onClick={() => setShow(!show)} aria-label={show ? 'Hide password' : 'Show password'} aria-pressed={show} className="absolute right-2 top-1/2 z-10 grid h-9 w-9 -translate-y-1/2 place-items-center rounded-full text-brown-70 hover:bg-cream-50">{show ? <EyeOff size={18} /> : <Eye size={18} />}</button>
+    </div>
+  )
+}
+
 // Enter the 6-digit code that Cognito emailed, with a way to send a new one.
 function CodeStep({ email, busy, error, onSubmit, onBack }: { email: string; busy: boolean; error: string; onSubmit: (code: string) => void; onBack: () => void }) {
   const [code, setCode] = useState('')
@@ -80,7 +94,6 @@ export function SignUp() {
   const [allergies, setAllergies] = useState<Allergen[]>([])
   const [diet, setDiet] = useState<Diet>('none')
   const [household, setHousehold] = useState(2)
-  const [show, setShow] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [busy, setBusy] = useState(false)
   const [formErr, setFormErr] = useState('')
@@ -146,12 +159,9 @@ export function SignUp() {
           <Field id="su-name" label="Name" error={errors.name}><input id="su-name" className={inputCls} value={f.name} onChange={setField('name')} autoComplete="name" placeholder="Sara" {...ariaFor('name')} /></Field>
           <Field id="su-age" label="Age (optional)" error={errors.age}><input id="su-age" className={inputCls} value={f.age} onChange={setField('age')} inputMode="numeric" placeholder="21" {...ariaFor('age')} /></Field>
         </div>
-        <Field id="su-email" label="Email" error={errors.email}><input id="su-email" type="email" className={inputCls} value={f.email} onChange={setField('email')} autoComplete="email" placeholder="sara@example.com" {...ariaFor('email')} /></Field>
+        <Field id="su-email" label="Email" error={errors.email}><input id="su-email" {...emailInput} className={inputCls} value={f.email} onChange={setField('email')} autoComplete="email" placeholder="sara@example.com" {...ariaFor('email')} /></Field>
         <Field id="su-pass" label="Password" error={errors.password} hint={USE_COGNITO ? PASSWORD_HINT : 'At least 8 characters.'}>
-          <div className="relative">
-            <input id="su-pass" type={show ? 'text' : 'password'} className={inputCls + ' pr-12'} value={f.password} onChange={setField('password')} autoComplete="new-password" {...ariaFor('password')} />
-            <button type="button" onClick={() => setShow(!show)} aria-label={show ? 'Hide password' : 'Show password'} className="absolute right-2 top-1/2 grid h-9 w-9 -translate-y-1/2 place-items-center rounded-full text-brown-70 hover:bg-cream-50">{show ? <EyeOff size={18} /> : <Eye size={18} />}</button>
-          </div>
+          <PasswordInput id="su-pass" value={f.password} onChange={(v) => setF({ ...f, password: v })} autoComplete="new-password" describedBy={ariaFor('password')} />
         </Field>
         <div>
           <p id="su-allergy" className="mb-2 text-sm font-bold text-brown">Allergies <span className="font-semibold text-brown-50">· select any that apply</span></p>
@@ -225,8 +235,8 @@ export function Login() {
   return (
     <AuthLayout pose="appLogo" title="Welcome back" sub="Log in to pick up where you left off.">
       <form onSubmit={submit} noValidate className="space-y-5 rounded-5xl bg-white/60 p-5 shadow-soft sm:p-7">
-        <Field id="li-email" label="Email"><input id="li-email" type="email" className={inputCls} value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" /></Field>
-        <Field id="li-pass" label="Password"><input id="li-pass" type="password" className={inputCls} value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" /></Field>
+        <Field id="li-email" label="Email"><input id="li-email" {...emailInput} className={inputCls} value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="username" /></Field>
+        <Field id="li-pass" label="Password"><PasswordInput id="li-pass" value={password} onChange={setPassword} autoComplete="current-password" /></Field>
         {USE_COGNITO && <p className="-mt-2 text-right text-sm"><button type="button" onClick={() => go('forgot')} className="font-bold text-red hover:underline">Forgot password?</button></p>}
         {err && <p role="alert" className="rounded-2xl bg-red-50 p-3 text-sm font-bold text-red-600">{err}</p>}
         <Button type="submit" size="lg" className="w-full" disabled={busy} icon={busy ? <Loader2 size={18} className="animate-spin" /> : undefined}>{busy ? 'Logging in…' : 'Log in'}</Button>
@@ -264,7 +274,7 @@ export function ForgotPassword() {
     <AuthLayout pose="confirm" title="Reset your password" sub="We’ll email you a code to set a new one.">
       {step === 'email' && (
         <form onSubmit={send} noValidate className="space-y-5 rounded-5xl bg-white/60 p-5 shadow-soft sm:p-7">
-          <Field id="fp-email" label="Email"><input id="fp-email" type="email" className={inputCls} value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" /></Field>
+          <Field id="fp-email" label="Email"><input id="fp-email" {...emailInput} className={inputCls} value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="username" /></Field>
           {err && <p role="alert" className="rounded-2xl bg-red-50 p-3 text-sm font-bold text-red-600">{err}</p>}
           <Button type="submit" size="lg" className="w-full" disabled={busy} icon={busy ? <Loader2 size={18} className="animate-spin" /> : undefined}>{busy ? 'Sending…' : 'Email me a code'}</Button>
         </form>
@@ -273,7 +283,7 @@ export function ForgotPassword() {
         <form onSubmit={reset} noValidate className="space-y-5 rounded-5xl bg-white/60 p-5 shadow-soft sm:p-7">
           <p className="text-brown">If <b>{email.trim()}</b> has an account, a code is on its way.</p>
           <Field id="fp-code" label="Code"><input id="fp-code" className={inputCls + ' tracking-[0.4em]'} value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))} inputMode="numeric" autoComplete="one-time-code" placeholder="123456" /></Field>
-          <Field id="fp-pass" label="New password" hint={PASSWORD_HINT}><input id="fp-pass" type="password" className={inputCls} value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="new-password" /></Field>
+          <Field id="fp-pass" label="New password" hint={PASSWORD_HINT}><PasswordInput id="fp-pass" value={password} onChange={setPassword} autoComplete="new-password" /></Field>
           {err && <p role="alert" className="rounded-2xl bg-red-50 p-3 text-sm font-bold text-red-600">{err}</p>}
           <Button type="submit" size="lg" className="w-full" disabled={busy} icon={busy ? <Loader2 size={18} className="animate-spin" /> : undefined}>{busy ? 'Saving…' : 'Set new password'}</Button>
           <button type="button" onClick={() => { setStep('email'); setErr('') }} className="text-sm font-bold text-red hover:underline">Use a different email</button>

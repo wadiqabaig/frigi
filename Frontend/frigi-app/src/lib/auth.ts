@@ -33,6 +33,9 @@ const MESSAGES: Record<string, string> = {
   NetworkError: 'We couldn’t reach Frigi. Check your connection and try again.',
 }
 
+// Emails are compared in lower case, so "Sara@Example.com" typed on a phone matches.
+const norm = (email: string) => email.trim().toLowerCase()
+
 /** Turns any Cognito error into a message that is safe to show. */
 export function authMessage(e: unknown): string {
   const err = e as { name?: string; message?: string }
@@ -51,24 +54,24 @@ export async function idToken(): Promise<string | null> {
 
 /** Creates the account; Cognito emails a 6-digit code. */
 export async function startSignUp(email: string, password: string, name: string) {
-  await signUp({ username: email, password, options: { userAttributes: { email, name } } })
+  await signUp({ username: norm(email), password, options: { userAttributes: { email: norm(email), name } } })
 }
 
 export async function confirmCode(email: string, code: string) {
-  await confirmSignUp({ username: email, confirmationCode: code.trim() })
+  await confirmSignUp({ username: norm(email), confirmationCode: code.trim() })
 }
 
 export async function resendCode(email: string) {
-  await resendSignUpCode({ username: email })
+  await resendSignUpCode({ username: norm(email) })
 }
 
 /** Logs in. Returns 'confirm' when the account still needs its emailed code. */
 export async function logIn(email: string, password: string): Promise<'done' | 'confirm'> {
   try { await signOut() } catch { /* nothing to sign out of */ }
-  const result = await signIn({ username: email, password })
+  const result = await signIn({ username: norm(email), password })
   if (result.isSignedIn) return 'done'
   if (result.nextStep.signInStep === 'CONFIRM_SIGN_UP') {
-    await resendSignUpCode({ username: email }).catch(() => undefined)
+    await resendSignUpCode({ username: norm(email) }).catch(() => undefined)
     return 'confirm'
   }
   throw Object.assign(new Error('Unsupported sign-in step'), { name: 'InvalidParameterException' })
@@ -76,11 +79,11 @@ export async function logIn(email: string, password: string): Promise<'done' | '
 
 /** Emails a code for resetting the password. */
 export async function startPasswordReset(email: string) {
-  await resetPassword({ username: email })
+  await resetPassword({ username: norm(email) })
 }
 
 export async function finishPasswordReset(email: string, code: string, newPassword: string) {
-  await confirmResetPassword({ username: email, confirmationCode: code.trim(), newPassword })
+  await confirmResetPassword({ username: norm(email), confirmationCode: code.trim(), newPassword })
 }
 
 export async function logOut() {
