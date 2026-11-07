@@ -1,0 +1,208 @@
+1
+00:00:00,560 --> 00:00:03,705
+This is Frigi, your AI kitchen companion.
+
+2
+00:00:03,835 --> 00:00:07,667
+Snap a photo of your fridge,
+and Frigi finds your ingredients,
+
+3
+00:00:07,717 --> 00:00:12,230
+asks what you're craving, and suggests
+recipes you can cook right now.
+
+4
+00:00:12,359 --> 00:00:15,241
+Creating a free account
+takes about a minute.
+
+5
+00:00:15,371 --> 00:00:19,374
+Frigi asks for your allergies,
+diet and household size,
+
+6
+00:00:19,424 --> 00:00:23,608
+so every recipe is safe for
+you and makes the right amount.
+
+7
+00:00:23,738 --> 00:00:26,975
+I already have an account,
+so let's log in.
+
+8
+00:00:27,318 --> 00:00:31,163
+The home screen shows what's
+in my fridge, my saved recipes,
+
+9
+00:00:31,213 --> 00:00:33,055
+and what I can cook now.
+
+10
+00:00:33,185 --> 00:00:38,580
+From here I can chat with Chef Frigi,
+or scan my fridge and add food by hand.
+
+11
+00:00:38,709 --> 00:00:43,725
+My profile keeps my preferences:
+a household of two, vegetarian,
+
+12
+00:00:43,775 --> 00:00:45,498
+with a peanut allergy.
+
+13
+00:00:45,629 --> 00:00:49,274
+Notes I leave after cooking
+are used for future recipes.
+
+14
+00:00:49,403 --> 00:00:51,521
+Now let's scan the fridge.
+
+15
+00:00:51,652 --> 00:00:54,707
+I can add up to five
+photos: the whole fridge,
+
+16
+00:00:54,757 --> 00:00:57,665
+plus close-ups of the
+drawers and the door.
+
+17
+00:01:00,828 --> 00:01:06,933
+Our fine-tuned RF-DETR model looks for
+42 kinds of ingredients in every photo.
+
+18
+00:01:07,064 --> 00:01:10,774
+The photos are processed
+in memory and never stored.
+
+19
+00:01:10,904 --> 00:01:12,986
+Here's what it found in each photo,
+
+20
+00:01:13,036 --> 00:01:16,851
+with a box and a confidence
+score for every item.
+
+21
+00:01:18,859 --> 00:01:23,727
+Frigi merges all five photos into
+one list, without duplicates.
+
+22
+00:01:23,857 --> 00:01:29,265
+Items it isn't sure about, like the
+water bottle and chicken, start unticked.
+
+23
+00:01:29,395 --> 00:01:32,711
+I can search for anything
+it missed, like rice.
+
+24
+00:01:34,562 --> 00:01:38,101
+And I can tap common staples,
+such as cooking oil.
+
+25
+00:01:38,231 --> 00:01:41,955
+Next, Chef Frigi asks
+a few quick questions.
+
+26
+00:01:42,085 --> 00:01:45,006
+I'll pick Italian, and a main course.
+
+27
+00:01:46,452 --> 00:01:49,491
+Then I'll type that I'm in
+the mood for something spicy.
+
+28
+00:01:50,285 --> 00:01:52,956
+I'll give it an hour, and cook for two.
+
+29
+00:01:54,232 --> 00:01:58,682
+Recipes come from Spoonacular,
+Gemini picks the best matches,
+
+30
+00:01:58,732 --> 00:02:04,087
+and a rule-based safety filter checks
+each one against my allergies and diet.
+
+31
+00:02:04,217 --> 00:02:07,954
+Each option shows the cooking
+time and what I'm missing.
+
+32
+00:02:08,084 --> 00:02:10,360
+Let's open the minestrone soup.
+
+33
+00:02:10,490 --> 00:02:14,424
+It's safety checked: no
+peanuts, and vegetarian.
+
+34
+00:02:14,554 --> 00:02:18,636
+Quantities scale with the servings,
+I can see what's already in my fridge,
+
+35
+00:02:18,686 --> 00:02:21,804
+and any missing ingredient can be swapped.
+
+36
+00:02:21,934 --> 00:02:24,710
+My notes show up every time I open it.
+
+37
+00:02:25,434 --> 00:02:29,700
+Start cooking opens a step-by-step
+mode, showing what I need,
+
+38
+00:02:29,750 --> 00:02:33,276
+with built-in timers
+and a note for any step.
+
+39
+00:02:35,626 --> 00:02:37,705
+Let's skip ahead to the end.
+
+40
+00:02:40,576 --> 00:02:42,037
+Chef's kiss!
+
+41
+00:02:42,166 --> 00:02:46,442
+I can tell Frigi what to change
+next time, and save the recipe.
+
+42
+00:02:46,573 --> 00:02:50,286
+Back home, Chef Frigi has a
+top pick from what I have,
+
+43
+00:02:50,336 --> 00:02:55,757
+my fridge and stats are updated,
+and my saved recipes are one tap away.
+
+44
+00:02:56,837 --> 00:03:00,366
+Your fridge has ideas.
+Let Frigi find them.
+
