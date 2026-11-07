@@ -12,7 +12,7 @@ ICT304 AI System Design, Murdoch University, 2026. Team: Wadiqa Baig, Parth Kota
 | `backend/` | FastAPI server: detection, recipe chef, safety filter and database |
 | `Frontend/frigi-app/` | Web app (React and Vite), hosted with AWS Amplify |
 | `deploy/` | Caddy configuration for HTTPS on the server (used with `docker-compose.yml`) |
-| `docs/` | Project overview, API contract and AWS deployment guide |
+| `docs/` | Project overview, API contract, AWS deployment guide and the demo video (`docs/demo-video/`) |
 | `design/illustrations/` | Illustrations for the website, report and slides |
 
 Model weights and the full dataset are not stored here because of their size; they are in the team Google Drive folder.
