@@ -7,6 +7,7 @@
 <p align="center">
   <b><a href="https://main.dfm6me47px9cd.amplifyapp.com">Open the live website</a></b> &nbsp;·&nbsp;
   <a href="docs/demo-video/frigi-demo-video.mp4">Watch the demo video</a> &nbsp;·&nbsp;
+  <a href="docs/demo-video/frigi-walkthrough.mp4">Watch the full walkthrough</a> &nbsp;·&nbsp;
   <a href="https://frigi-app.duckdns.org/docs">API docs</a>
 </p>
 
@@ -81,7 +82,7 @@ The tests use fake Spoonacular and Gemini responses, so they need no API keys or
 | `Frontend/frigi-app/` | Web app (React, TypeScript and Vite), hosted with AWS Amplify |
 | `detection/` | Colab notebooks for training and testing the detector, dataset metadata and retraining results (`instructions.txt` explains how to run them) |
 | `deploy/` | Caddy configuration for HTTPS on the server (used with `docker-compose.yml`) |
-| `docs/` | Project overview, API contract, AWS deployment guide and the demo video (`docs/demo-video/`) |
+| `docs/` | Project overview, API contract, AWS deployment guide, the 40-second demo video and the 3-minute narrated walkthrough with subtitles (`docs/demo-video/`) |
 | `design/illustrations/` | Illustrations used on the website, report and slides |
 
 Model weights and the full dataset are not stored here because of their size; they are in the team Google Drive folder and the unit submission.
